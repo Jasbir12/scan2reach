@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings & Roles — Scan2Reach Admin</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--p:#6C63FF;--pd:#5a52d5;--bg:#0a0a1a;--card:#16213e;--card2:#1a1a2e;--sidebar:#0d0d24;--input:#252545;--text:#e8e8f0;--text2:#8888aa;--ok:#00c853;--no:#ff1744;--warn:#ff9100;--info:#2196f3;--border:#2a2a4a;--sw:260px;--radius:12px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+a{color:var(--p);text-decoration:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--p)}
+
+#maintenanceBanner{display:none;background:linear-gradient(90deg,#ff6d00,#ff9100);color:#000;text-align:center;padding:10px 20px;font-weight:600;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999}
+#maintenanceBanner .close-ban{position:absolute;right:16px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;background:none;border:none;color:#000}
+
+.screen-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:8000}
+.screen-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:48px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.screen-card h1{font-size:28px;margin-bottom:8px;background:linear-gradient(135deg,var(--p),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.screen-card p{color:var(--text2);margin-bottom:28px;font-size:14px}
+.screen-card .logo-icon{font-size:56px;margin-bottom:16px}
+.btn{padding:12px 24px;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:linear-gradient(135deg,var(--p),var(--pd));color:#fff}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,99,255,.4)}
+.btn-danger{background:var(--no);color:#fff}
+.btn-danger:hover{background:#d50000}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--p);color:var(--p)}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px}
+.btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border);background:var(--input);color:var(--text);cursor:pointer;transition:.2s}
+.btn-icon:hover{border-color:var(--p);color:var(--p)}
+.btn-google{background:#fff;color:#333;border:1px solid #ddd;font-size:15px;width:100%;justify-content:center;margin-top:8px;padding:14px}
+.btn-google:hover{background:#f5f5f5}
+
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sw);background:var(--sidebar);border-right:1px solid var(--border);z-index:7000;display:flex;flex-direction:column;transition:transform .3s}
+.sidebar-logo{padding:24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.sidebar-logo span{font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--p),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sidebar-logo .logo-dot{width:36px;height:36px;background:linear-gradient(135deg,var(--p),#a78bfa);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff}
+.sidebar-nav{flex:1;overflow-y:auto;padding:12px 0}
+.nav-section{padding:8px 20px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 20px;margin:2px 8px;border-radius:8px;color:var(--text2);cursor:pointer;transition:all .2s;font-size:13.5px;text-decoration:none}
+.nav-item:hover{background:rgba(108,99,255,.1);color:var(--text)}
+.nav-item.active{background:rgba(108,99,255,.15);color:var(--p);font-weight:600}
+.nav-item .nav-icon{font-size:18px;width:24px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer .admin-info-mini{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sidebar-footer .admin-avatar{width:36px;height:36px;background:linear-gradient(135deg,var(--p),#a78bfa);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff}
+.sidebar-footer .admin-name{font-size:13px;font-weight:600}
+.sidebar-footer .admin-role{font-size:11px;color:var(--text2)}
+
+.main{margin-left:var(--sw);min-height:100vh;transition:margin .3s}
+.header{position:sticky;top:0;z-index:6000;background:rgba(10,10,26,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
+.header-left{display:flex;align-items:center;gap:16px}
+.hamburger{display:none;background:none;border:none;color:var(--text);font-size:24px;cursor:pointer}
+.header-title{font-size:20px;font-weight:700}
+.header-sub{font-size:12px;color:var(--text2)}
+.header-right{display:flex;align-items:center;gap:10px}
+.content{padding:24px 28px}
+
+.tab-bar{display:flex;gap:4px;margin-bottom:24px;background:var(--card);border-radius:var(--radius);padding:4px;border:1px solid var(--border)}
+.tab-btn{padding:10px 20px;border:none;background:transparent;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;border-radius:8px;transition:.2s}
+.tab-btn.active{background:var(--p);color:#fff}
+.tab-btn:hover:not(.active){background:rgba(108,99,255,.1);color:var(--text)}
+.tab-content{display:none}
+.tab-content.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Two-panel layout for Roles */
+.roles-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.panel h3{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.panel-header h3{margin-bottom:0}
+
+/* Role cards */
+.role-card{background:var(--input);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;transition:transform .15s}
+.role-card:hover{transform:translateX(3px)}
+.role-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.role-name{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.role-desc{font-size:12px;color:var(--text2);margin-bottom:10px}
+.role-perms{display:flex;flex-wrap:wrap;gap:4px}
+.perm-chip{padding:3px 8px;background:rgba(108,99,255,.12);color:var(--p);border-radius:12px;font-size:10px;font-weight:600}
+.role-actions{display:flex;gap:6px}
+.edit-btn,.del-btn{background:transparent;border:1px solid var(--border);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;transition:.2s;color:var(--text2)}
+.edit-btn:hover{border-color:var(--info);background:rgba(33,150,243,.1);color:var(--info)}
+.del-btn:hover{border-color:var(--no);background:rgba(255,23,68,.1);color:var(--no)}
+
+/* Admin user cards */
+.admin-card{background:var(--input);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;transition:transform .15s}
+.admin-card:hover{transform:translateX(3px)}
+.admin-card-avatar{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
+.admin-card-body{flex:1;min-width:0}
+.admin-card-name{font-size:14px;font-weight:600}
+.admin-card-email{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-card-uid{font-family:monospace;font-size:9px;color:var(--text2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-card-role{margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:8px}
+.remove-admin-btn{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:.2s}
+.remove-admin-btn:hover{border-color:var(--no);color:var(--no);background:rgba(255,23,68,.1)}
+.self-tag{font-size:9px;padding:2px 6px;border-radius:8px;background:rgba(108,99,255,.15);color:var(--p);font-weight:700}
+
+/* Settings form */
+.settings-subtabs{display:flex;gap:4px;margin-bottom:20px}
+.subtab-btn{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:.2s}
+.subtab-btn.active{background:rgba(108,99,255,.15);border-color:var(--p);color:var(--p)}
+.subtab-btn:hover:not(.active){background:rgba(108,99,255,.05);color:var(--text)}
+.subtab-content{display:none}
+.subtab-content.active{display:block;animation:fadeUp .25s ease}
+
+.settings-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:720px}
+.settings-panel h3{font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--input);color:var(--text);font-size:13px;outline:none;transition:.3s;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(108,99,255,.15)}
+.form-group textarea{min-height:70px;resize:vertical}
+.form-group .hint{font-size:11px;color:var(--text2);margin-top:4px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.form-toggle{display:flex;align-items:center;gap:12px;padding:12px 0}
+.toggle-switch{position:relative;width:44px;height:24px;cursor:pointer;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:12px;transition:.3s}
+.toggle-slider::before{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.3s}
+.toggle-switch input:checked+.toggle-slider{background:var(--ok)}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(20px)}
+.toggle-label{font-size:13px}
+.toggle-sub{font-size:11px;color:var(--text2)}
+.form-divider{height:1px;background:var(--border);margin:20px 0}
+.form-section-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* Maintenance warning */
+.maint-warning{background:rgba(255,145,0,.1);border:1px solid rgba(255,145,0,.3);border-radius:8px;padding:12px 16px;margin-top:8px;font-size:12px;color:var(--warn);display:none;align-items:center;gap:8px}
+.maint-warning.show{display:flex}
+
+/* Chips in modal */
+.form-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{padding:4px 10px;background:rgba(108,99,255,.15);color:var(--p);border-radius:20px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.chip .chip-x{cursor:pointer;font-size:14px;line-height:1}
+
+.badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block}
+.badge-ok{background:rgba(0,200,83,.15);color:var(--ok)}
+.badge-no{background:rgba(255,23,68,.15);color:var(--no)}
+.badge-warn{background:rgba(255,145,0,.15);color:var(--warn)}
+.badge-info{background:rgba(33,150,243,.15);color:var(--info)}
+.badge-purple{background:rgba(108,99,255,.15);color:var(--p)}
+.badge-cyan{background:rgba(0,229,255,.15);color:#00e5ff}
+.badge-teal{background:rgba(0,150,136,.15);color:#009688}
+
+.no-data{text-align:center;padding:40px;color:var(--text2)}
+.no-data .no-icon{font-size:40px;margin-bottom:10px;opacity:.5}
+.loading-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:8500;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.show{display:flex;animation:fadeUp .25s ease}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
+.modal-header h2{font-size:18px;display:flex;align-items:center;gap:10px}
+.modal-close{width:34px;height:34px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:.2s}
+.modal-close:hover{background:rgba(255,23,68,.1);border-color:var(--no);color:var(--no)}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+
+.search-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:8600;padding:60px 20px}
+.search-overlay.show{display:block;animation:fadeUp .2s ease}
+.search-overlay-inner{max-width:640px;margin:0 auto}
+.search-overlay input{width:100%;padding:18px 24px 18px 52px;border:2px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);font-size:18px;outline:none;transition:.3s}
+.search-overlay input:focus{border-color:var(--p)}
+.search-overlay .so-icon{position:absolute;left:20px;top:20px;font-size:20px;color:var(--text2)}
+.search-overlay .so-esc{position:absolute;right:20px;top:18px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text2);background:var(--input)}
+.search-results{margin-top:20px;max-height:60vh;overflow-y:auto}
+.sr-section{margin-bottom:16px}
+.sr-section h4{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px}
+.sr-item{padding:12px 16px;border-radius:8px;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:12px}
+.sr-item:hover{background:rgba(108,99,255,.1)}
+
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:9998;display:flex;flex-direction:column;gap:8px}
+.toast{padding:14px 20px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;min-width:280px;max-width:420px;animation:slideInRight .3s ease;box-shadow:0 8px 25px rgba(0,0,0,.4)}
+.toast-ok{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff}
+.toast-no{background:linear-gradient(135deg,#b71c1c,#c62828);color:#fff}
+.toast-info{background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff}
+@keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+
+.hidden{display:none!important}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:6999}
+.sidebar.open+.sidebar-overlay{display:block}
+
+@media(max-width:1200px){.roles-layout{grid-template-columns:1fr}}
+@media(max-width:768px){
+.sidebar{transform:translateX(-100%)}
+.sidebar.open{transform:translateX(0)}
+.main{margin-left:0}
+.hamburger{display:block}
+.header{padding:12px 16px}
+.content{padding:16px}
+.form-row,.form-row-3{grid-template-columns:1fr}
+.tab-bar{overflow-x:auto}
+.roles-layout{grid-template-columns:1fr}
+.modal{max-width:95vw}
+.settings-subtabs{overflow-x:auto;flex-wrap:nowrap}
+}
+</style>
+</head>
+<body>
+
+<div id="maintenanceBanner">
+  ⚠️ Maintenance Mode is ON — <span id="maintenanceMsg">System under maintenance</span>
+  <button class="close-ban" onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<div id="loginScreen" class="screen-overlay">
+  <div class="screen-card">
+    <div class="logo-icon">🔐</div>
+    <h1>Scan2Reach Admin</h1>
+    <p>Sign in with your admin account</p>
+    <button class="btn btn-google" onclick="doLogin()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<div id="deniedScreen" class="screen-overlay hidden">
+  <div class="screen-card">
+    <div class="logo-icon">🚫</div>
+    <h1>Access Denied</h1>
+    <p>You don't have admin privileges.</p>
+    <button class="btn btn-outline" onclick="firebase.auth().signOut()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ==================== ADMIN PANEL ==================== -->
+<div id="adminPanel" class="hidden">
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><div class="logo-dot">S2</div><span>Scan2Reach</span></div>
+    <div class="sidebar-nav">
+      <div class="nav-section">Main</div>
+      <a class="nav-item" href="admin.html"><span class="nav-icon">📊</span> Dashboard</a>
+      <a class="nav-item" href="admin.html#users"><span class="nav-icon">👥</span> Users</a>
+      <a class="nav-item" href="admin.html#profiles"><span class="nav-icon">📇</span> Profiles</a>
+      <div class="nav-section">Management</div>
+      <a class="nav-item" href="admin-products.html"><span class="nav-icon">📦</span> Products</a>
+      <a class="nav-item" href="admin-products.html#qrcodes"><span class="nav-icon">🔲</span> QR Codes</a>
+      <div class="nav-section">Analytics</div>
+      <a class="nav-item" href="admin-calls.html"><span class="nav-icon">📞</span> Call Analytics</a>
+      <a class="nav-item" href="admin-scans.html"><span class="nav-icon">📈</span> Scan Analytics</a>
+      <div class="nav-section">System</div>
+      <a class="nav-item" href="admin-activity.html"><span class="nav-icon">🔔</span> Activity</a>
+      <a class="nav-item" href="admin-activity.html#logs"><span class="nav-icon">📋</span> Admin Logs</a>
+      <a class="nav-item active" data-tab="roles" onclick="switchTab('roles')"><span class="nav-icon">👑</span> Roles</a>
+      <a class="nav-item" data-tab="settings" onclick="switchTab('settings')"><span class="nav-icon">⚙️</span> Settings</a>
+      <a class="nav-item" href="admin-export.html"><span class="nav-icon">📥</span> Export</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="admin-info-mini">
+        <div class="admin-avatar" id="sidebarAvatar">A</div>
+        <div><div class="admin-name" id="sidebarName">Admin</div><div class="admin-role" id="sidebarRole">admin</div></div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="width:100%" onclick="doLogout()">🚪 Sign Out</button>
+    </div>
+  </nav>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <main class="main">
+    <header class="header">
+      <div class="header-left">
+        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <div>
+          <div class="header-title" id="headerTitle">👑 Roles & Permissions</div>
+          <div class="header-sub" id="headerSub">Manage admin roles and system settings</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn-icon" title="Search" onclick="openSearch()">🔍</button>
+        <button class="btn-icon" title="Refresh" onclick="refreshAll()">🔄</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('roles')">👑 Roles & Permissions</button>
+        <button class="tab-btn" onclick="switchTab('settings')">⚙️ System Settings</button>
+      </div>
+
+      <!-- ============ ROLES TAB ============ -->
+      <div class="tab-content active" id="tab-roles">
+        <div class="roles-layout">
+
+          <!-- LEFT: Roles -->
+          <div class="panel">
+            <div class="panel-header">
+              <h3>🎭 Roles</h3>
+              <button class="btn btn-primary btn-sm" onclick="openRoleModal()">➕ Add Role</button>
+            </div>
+            <div id="rolesList">
+              <div class="loading-spinner"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Admin Users -->
+          <div class="panel">
+            <div class="panel-header">
+              <h3>👥 Admin Users</h3>
+              <button class="btn btn-primary btn-sm" onclick="openAdminModal()">➕ Add Admin</button>
+            </div>
+            <div id="adminsList">
+              <div class="loading-spinner"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ============ SETTINGS TAB ============ -->
+      <div class="tab-content" id="tab-settings">
+
+        <div class="settings-subtabs">
+          <button class="subtab-btn active" onclick="switchSubtab('general')">🌐 General</button>
+          <button class="subtab-btn" onclick="switchSubtab('subscription')">💳 Subscription</button>
+          <button class="subtab-btn" onclick="switchSubtab('notifications')">🔔 Notifications</button>
+        </div>
+
+        <!-- General Settings -->
+        <div class="subtab-content active" id="subtab-general">
+          <div class="settings-panel">
+            <h3>🌐 General Settings</h3>
+            <div class="form-row">
+              <div class="form-group"><label>App Name</label><input type="text" id="setAppName" placeholder="Scan2Reach"></div>
+              <div class="form-group"><label>Tagline</label><input type="text" id="setTagline" placeholder="Smart QR Profiles"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Support Email</label><input type="email" id="setSupportEmail" placeholder="support@scan2reach.com"></div>
+              <div class="form-group"><label>Support Phone</label><input type="text" id="setSupportPhone" placeholder="+91-XXXXXXXXXX"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Website URL</label><input type="url" id="setWebsite" placeholder="https://scan2reach.com"></div>
+              <div class="form-group"><label>Timezone</label>
+                <select id="setTimezone">
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">America/New_York (EST)</option>
+                  <option value="Europe/London">Europe/London (GMT)</option>
+                  <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-divider"></div>
+            <div class="form-section-title">🔧 Maintenance Mode</div>
+
+            <div class="form-toggle">
+              <label class="toggle-switch">
+                <input type="checkbox" id="setMaintenanceMode" onchange="onMaintenanceToggle()">
+                <span class="toggle-slider"></span>
+              </label>
+              <div>
+                <div class="toggle-label">Maintenance Mode</div>
+                <div class="toggle-sub">When enabled, shows a warning banner to all admins</div>
+              </div>
+            </div>
+            <div class="maint-warning" id="maintWarning">⚠️ Maintenance mode is currently ACTIVE. Users may see limited functionality.</div>
+            <div class="form-group">
+              <label>Maintenance Message</label>
+              <input type="text" id="setMaintenanceMessage" placeholder="System under maintenance. Please try again later.">
+            </div>
+
+            <button class="btn btn-primary" onclick="saveGeneralSettings()" style="margin-top:8px">💾 Save General Settings</button>
+          </div>
+        </div>
+
+        <!-- Subscription Settings -->
+        <div class="subtab-content" id="subtab-subscription">
+          <div class="settings-panel">
+            <h3>💳 Subscription Settings</h3>
+
+            <div class="form-section-title">📊 Profile Limits</div>
+            <div class="form-row">
+              <div class="form-group"><label>Free Profile Limit</label><input type="number" id="setFreeLimit" placeholder="1" min="0"></div>
+              <div class="form-group"><label>Premium Profile Limit</label><input type="number" id="setPremiumLimit" placeholder="10" min="0"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Trial Period (days)</label><input type="number" id="setTrialDays" placeholder="7" min="0"></div>
+              <div class="form-group"><label>Grace Period (days)</label><input type="number" id="setGraceDays" placeholder="3" min="0"></div>
+            </div>
+
+            <div class="form-divider"></div>
+            <div class="form-section-title">💳 Razorpay Configuration</div>
+
+            <div class="form-group">
+              <label>Razorpay Key ID</label>
+              <input type="text" id="setRazorpayKey" placeholder="rzp_live_...">
+              <div class="hint">Your Razorpay publishable key</div>
+            </div>
+            <div class="form-group">
+              <label>Razorpay Key Secret</label>
+              <input type="password" id="setRazorpaySecret" placeholder="••••••••">
+              <div class="hint">Keep this secret. Never share publicly.</div>
+            </div>
+
+            <button class="btn btn-primary" onclick="saveSubscriptionSettings()" style="margin-top:8px">💾 Save Subscription Settings</button>
+          </div>
+        </div>
+
+        <!-- Notification Settings -->
+        <div class="subtab-content" id="subtab-notifications">
+          <div class="settings-panel">
+            <h3>🔔 Notification Settings</h3>
+
+            <div class="form-section-title">📬 Toggle Notifications</div>
+
+            <div class="form-toggle">
+              <label class="toggle-switch"><input type="checkbox" id="setEmailNotifs"><span class="toggle-slider"></span></label>
+              <div><div class="toggle-label">Email Notifications</div><div class="toggle-sub">Send emails on important events</div></div>
+            </div>
+            <div class="form-toggle">
+              <label class="toggle-switch"><input type="checkbox" id="setPushNotifs"><span class="toggle-slider"></span></label>
+              <div><div class="toggle-label">Push Notifications</div><div class="toggle-sub">Browser push via FCM</div></div>
+            </div>
+            <div class="form-toggle">
+              <label class="toggle-switch"><input type="checkbox" id="setNewUserAlert"><span class="toggle-slider"></span></label>
+              <div><div class="toggle-label">New User Alert</div><div class="toggle-sub">Notify when new user registers</div></div>
+            </div>
+            <div class="form-toggle">
+              <label class="toggle-switch"><input type="checkbox" id="setPaymentAlert"><span class="toggle-slider"></span></label>
+              <div><div class="toggle-label">New Payment Alert</div><div class="toggle-sub">Notify on successful payment</div></div>
+            </div>
+            <div class="form-toggle">
+              <label class="toggle-switch"><input type="checkbox" id="setWeeklyReport"><span class="toggle-slider"></span></label>
+              <div><div class="toggle-label">Weekly Report</div><div class="toggle-sub">Send weekly analytics summary</div></div>
+            </div>
+
+            <div class="form-divider"></div>
+            <div class="form-section-title">📧 SMTP Configuration</div>
+
+            <div class="form-row">
+              <div class="form-group"><label>SMTP Host</label><input type="text" id="setSmtpHost" placeholder="smtp.gmail.com"></div>
+              <div class="form-group"><label>SMTP Port</label><input type="number" id="setSmtpPort" placeholder="587"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>SMTP Username</label><input type="text" id="setSmtpUser" placeholder="email@gmail.com"></div>
+              <div class="form-group"><label>SMTP Password</label><input type="password" id="setSmtpPass" placeholder="••••••••"></div>
+            </div>
+
+            <div class="form-divider"></div>
+            <div class="form-section-title">🔥 FCM & Alerts</div>
+
+            <div class="form-group">
+              <label>FCM Server Key</label>
+              <input type="password" id="setFcmKey" placeholder="AAAA...">
+              <div class="hint">Firebase Cloud Messaging server key</div>
+            </div>
+            <div class="form-group">
+              <label>Alert Email Address</label>
+              <input type="email" id="setAlertEmail" placeholder="admin@scan2reach.com">
+              <div class="hint">Email where all alerts will be sent</div>
+            </div>
+
+            <button class="btn btn-primary" onclick="saveNotificationSettings()" style="margin-top:8px">💾 Save Notification Settings</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ============ ROLE MODAL ============ -->
+<div class="modal-overlay" id="roleModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="roleModalTitle">🎭 Add Role</h2>
+      <button class="modal-close" onclick="closeModal('roleModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="roleEditId">
+      <div class="form-group"><label>Role Name</label><input type="text" id="roleName" placeholder="e.g. editor"></div>
+      <div class="form-group"><label>Description</label><input type="text" id="roleDesc" placeholder="e.g. Can manage profiles and products"></div>
+      <div class="form-group">
+        <label>Permissions (comma separated)</label>
+        <input type="text" id="rolePermsInput" placeholder="manage_users, view_analytics..." onkeydown="if(event.key===','||event.key==='Enter'){event.preventDefault();addPermChip()}">
+        <div class="hint">Type a permission and press comma or Enter</div>
+        <div class="form-chips" id="rolePermsChips"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('roleModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRole()">💾 Save Role</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN MODAL ============ -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>👤 Add Admin</h2>
+      <button class="modal-close" onclick="closeModal('adminModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>User UID</label><input type="text" id="addAdminUid" placeholder="Firebase Auth UID"><div class="hint">The user must already have a Firebase Auth account</div></div>
+      <div class="form-group"><label>Email</label><input type="email" id="addAdminEmail" placeholder="admin@example.com"></div>
+      <div class="form-group"><label>Name</label><input type="text" id="addAdminName" placeholder="Full Name"></div>
+      <div class="form-group"><label>Role</label>
+        <select id="addAdminRole"><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('adminModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdmin()">💾 Add Admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-overlay-inner">
+    <div style="position:relative">
+      <span class="so-icon">🔍</span>
+      <input type="text" id="globalSearchInput" placeholder="Search roles, admins, settings..." oninput="doGlobalSearch()">
+      <span class="so-esc">ESC</span>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ════════════════════════════════════════════════════
+// FIREBASE
+// ════════════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:"AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+  authDomain:"scan2reach-new.firebaseapp.com",
+  projectId:"scan2reach-new",
+  storageBucket:"scan2reach-new.firebasestorage.app",
+  messagingSenderId:"466815844554",
+  appId:"1:466815844554:web:caf16651ec18d026d8b433"
+});
+const auth=firebase.auth(),db=firebase.firestore();
+
+// ════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════
+const S={user:null,admin:null,roles:[],admins:[],permsList:[],settingsGeneral:{},settingsSub:{},settingsNotif:{}};
+
+// ════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════
+auth.onAuthStateChanged(async u=>{
+  if(!u){showScreen('login');return}
+  S.user=u;
+  try{
+    const d=await db.collection('admins').doc(u.uid).get();
+    if(d.exists){S.admin={id:d.id,...d.data()};showScreen('admin');initAdmin()}
+    else{showScreen('denied')}
+  }catch(e){showScreen('denied')}
+});
+function showScreen(s){
+  document.getElementById('loginScreen').classList.toggle('hidden',s!=='login');
+  document.getElementById('deniedScreen').classList.toggle('hidden',s!=='denied');
+  document.getElementById('adminPanel').classList.toggle('hidden',s!=='admin');
+}
+function doLogin(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>toast(e.message,'no'))}
+function doLogout(){auth.signOut().then(()=>location.reload())}
+
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+async function initAdmin(){
+  document.getElementById('sidebarAvatar').textContent=(S.admin.name||S.admin.email||'A')[0].toUpperCase();
+  document.getElementById('sidebarName').textContent=S.admin.name||S.admin.email;
+  document.getElementById('sidebarRole').textContent=S.admin.role||'admin';
+  checkMaintenance();
+  await loadData();
+  logAdmin('login','admin_panel',null,'Opened Settings & Roles page');
+  if(location.hash==='#settings')switchTab('settings');
+}
+
+async function checkMaintenance(){
+  try{
+    const d=await db.collection('settings').doc('general').get();
+    if(d.exists&&d.data().maintenanceMode){
+      document.getElementById('maintenanceBanner').style.display='block';
+      document.getElementById('maintenanceMsg').textContent=d.data().maintenanceMessage||'System under maintenance';
+    }
+  }catch(e){}
+}
+
+async function loadData(){
+  try{
+    const[rolesSnap,adminsSnap,genDoc,subDoc,notifDoc]=await Promise.all([
+      db.collection('admin_roles').get(),
+      db.collection('admins').get(),
+      db.collection('settings').doc('general').get(),
+      db.collection('settings').doc('subscription').get(),
+      db.collection('settings').doc('notifications').get()
+    ]);
+    S.roles=rolesSnap.docs.map(d=>({id:d.id,...d.data()}));
+    S.admins=adminsSnap.docs.map(d=>({id:d.id,...d.data()}));
+    S.settingsGeneral=genDoc.exists?genDoc.data():{};
+    S.settingsSub=subDoc.exists?subDoc.data():{};
+    S.settingsNotif=notifDoc.exists?notifDoc.data():{};
+
+    // Populate admin role dropdown with actual roles
+    populateRoleDropdown();
+    renderRoles();
+    renderAdmins();
+    populateGeneralSettings();
+    populateSubSettings();
+    populateNotifSettings();
+  }catch(e){toast('Load error: '+e.message,'no')}
+}
+
+async function refreshAll(){toast('Refreshing...','info');await loadData();toast('Data refreshed!','ok')}
+
+function populateRoleDropdown(){
+  const sel=document.getElementById('addAdminRole');
+  let opts='<option value="admin">admin</option><option value="super_admin">super_admin</option>';
+  S.roles.forEach(r=>{
+    if(r.name!=='admin'&&r.name!=='super_admin')opts+=`<option value="${esc(r.name)}">${esc(r.name)}</option>`;
+  });
+  sel.innerHTML=opts;
+}
+
+// ════════════════════════════════════════════════════
+// ROLES
+// ════════════════════════════════════════════════════
+function renderRoles(){
+  const el=document.getElementById('rolesList');
+  if(!S.roles.length){el.innerHTML='<div class="no-data"><div class="no-icon">🎭</div>No roles defined</div>';return}
+
+  const roleIcons={super_admin:'👑',admin:'🛡️',editor:'✏️',viewer:'👁️'};
+  el.innerHTML=S.roles.map(r=>{
+    const icon=roleIcons[r.name]||'🎭';
+    const perms=(r.permissions||[]).slice(0,8);
+    return `
+    <div class="role-card">
+      <div class="role-card-header">
+        <div class="role-name">${icon} ${esc(r.name)}</div>
+        <div class="role-actions">
+          <button class="edit-btn" title="Edit" onclick="editRole('${r.id}')">✏️</button>
+          <button class="del-btn" title="Delete" onclick="deleteRole('${r.id}')">🗑️</button>
+        </div>
+      </div>
+      <div class="role-desc">${esc(r.description||'No description')}</div>
+      <div class="role-perms">${perms.map(p=>`<span class="perm-chip">${esc(p)}</span>`).join('')}${(r.permissions||[]).length>8?`<span class="perm-chip">+${(r.permissions||[]).length-8} more</span>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+function openRoleModal(){
+  document.getElementById('roleModalTitle').innerHTML='🎭 Add Role';
+  document.getElementById('roleEditId').value='';
+  document.getElementById('roleName').value='';
+  document.getElementById('roleDesc').value='';
+  document.getElementById('rolePermsInput').value='';
+  S.permsList=[];
+  renderPermChips();
+  openModal('roleModal');
+}
+
+function editRole(id){
+  const r=S.roles.find(x=>x.id===id);
+  if(!r)return;
+  document.getElementById('roleModalTitle').innerHTML='🎭 Edit Role';
+  document.getElementById('roleEditId').value=id;
+  document.getElementById('roleName').value=r.name||'';
+  document.getElementById('roleDesc').value=r.description||'';
+  document.getElementById('rolePermsInput').value='';
+  S.permsList=[...(r.permissions||[])];
+  renderPermChips();
+  openModal('roleModal');
+}
+
+function addPermChip(){
+  const input=document.getElementById('rolePermsInput');
+  const val=input.value.replace(/,/g,'').trim().toLowerCase().replace(/\s+/g,'_');
+  if(val&&!S.permsList.includes(val)){S.permsList.push(val);renderPermChips()}
+  input.value='';input.focus();
+}
+function removePerm(i){S.permsList.splice(i,1);renderPermChips()}
+function renderPermChips(){
+  document.getElementById('rolePermsChips').innerHTML=S.permsList.map((p,i)=>
+    `<span class="chip">${esc(p)}<span class="chip-x" onclick="removePerm(${i})">✕</span></span>`
+  ).join('');
+}
+
+async function saveRole(){
+  const editId=document.getElementById('roleEditId').value;
+  const name=document.getElementById('roleName').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const desc=document.getElementById('roleDesc').value.trim();
+
+  // Add remaining input
+  const remaining=document.getElementById('rolePermsInput').value.trim();
+  if(remaining)remaining.split(',').forEach(p=>{const pt=p.trim().toLowerCase().replace(/\s+/g,'_');if(pt&&!S.permsList.includes(pt))S.permsList.push(pt)});
+
+  if(!name){toast('Role name is required','no');return}
+
+  const data={name,description:desc,permissions:S.permsList,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+
+  try{
+    if(editId){
+      await db.collection('admin_roles').doc(editId).update(data);
+      const idx=S.roles.findIndex(r=>r.id===editId);
+      if(idx>=0)S.roles[idx]={...S.roles[idx],...data,id:editId};
+      logAdmin('update','admin_roles',editId,`Updated role: ${name}`);
+      toast('Role updated!','ok');
+    }else{
+      data.createdAt=firebase.firestore.FieldValue.serverTimestamp();
+      const ref=await db.collection('admin_roles').add(data);
+      S.roles.push({id:ref.id,...data});
+      logAdmin('create','admin_roles',ref.id,`Created role: ${name}`);
+      toast('Role created!','ok');
+    }
+    closeModal('roleModal');
+    renderRoles();
+    populateRoleDropdown();
+  }catch(e){toast('Save failed: '+e.message,'no')}
+}
+
+async function deleteRole(id){
+  const r=S.roles.find(x=>x.id===id);
+  if(!r)return;
+  if(!confirm(`Delete role "${r.name}"?`))return;
+  try{
+    await db.collection('admin_roles').doc(id).delete();
+    S.roles=S.roles.filter(x=>x.id!==id);
+    renderRoles();
+    populateRoleDropdown();
+    logAdmin('delete','admin_roles',id,`Deleted role: ${r.name}`);
+    toast('Role deleted','ok');
+  }catch(e){toast('Delete failed: '+e.message,'no')}
+}
+
+// ════════════════════════════════════════════════════
+// ADMIN USERS
+// ════════════════════════════════════════════════════
+function renderAdmins(){
+  const el=document.getElementById('adminsList');
+  if(!S.admins.length){el.innerHTML='<div class="no-data"><div class="no-icon">👥</div>No admins found</div>';return}
+
+  const colors=['#6C63FF','#00c853','#ff9100','#2196f3','#e91e63','#009688'];
+  el.innerHTML=S.admins.map(a=>{
+    const bgColor=colors[Math.abs(hashStr(a.email||a.id))%colors.length];
+    const isSelf=a.id===S.admin.id;
+    const roleBadge=a.role==='super_admin'?'badge-warn':a.role==='admin'?'badge-info':'badge-purple';
+    return `
+    <div class="admin-card">
+      <div class="admin-card-avatar" style="background:${bgColor}">${(a.name||a.email||'?')[0].toUpperCase()}</div>
+      <div class="admin-card-body">
+        <div class="admin-card-name">${esc(a.name||'Unknown')} ${isSelf?'<span class="self-tag">YOU</span>':''}</div>
+        <div class="admin-card-email">${esc(a.email||'')}</div>
+        <div class="admin-card-uid">UID: ${a.uid||a.id}</div>
+      </div>
+      <div class="admin-card-role">
+        <span class="badge ${roleBadge}">${esc(a.role||'admin')}</span>
+        ${isSelf?'':`<button class="remove-admin-btn" title="Remove Admin" onclick="removeAdmin('${a.id}')">✕</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAdminModal(){openModal('adminModal');document.getElementById('addAdminUid').value='';document.getElementById('addAdminEmail').value='';document.getElementById('addAdminName').value='';document.getElementById('addAdminRole').value='admin'}
+
+async function saveAdmin(){
+  const uid=document.getElementById('addAdminUid').value.trim();
+  const email=document.getElementById('addAdminEmail').value.trim();
+  const name=document.getElementById('addAdminName').value.trim();
+  const role=document.getElementById('addAdminRole').value;
+
+  if(!uid){toast('UID is required','no');return}
+  if(!email){toast('Email is required','no');return}
+  if(!name){toast('Name is required','no');return}
+
+  // Check if already exists
+  if(S.admins.find(a=>a.id===uid)){toast('This UID is already an admin','no');return}
+
+  try{
+    const data={uid,email,name,role,createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+    await db.collection('admins').doc(uid).set(data);
+    S.admins.push({id:uid,...data});
+    renderAdmins();
+    closeModal('adminModal');
+    logAdmin('create','admins',uid,`Added admin: ${email} as ${role}`);
+    toast(`Added ${email} as ${role}!`,'ok');
+  }catch(e){toast('Failed: '+e.message,'no')}
+}
+
+async function removeAdmin(id){
+  if(id===S.admin.id){toast("You can't remove yourself!",'no');return}
+  const a=S.admins.find(x=>x.id===id);
+  if(!a)return;
+  if(!confirm(`Remove admin "${a.name||a.email}"?\n\nThey will lose admin access.`))return;
+
+  try{
+    await db.collection('admins').doc(id).delete();
+    S.admins=S.admins.filter(x=>x.id!==id);
+    renderAdmins();
+    logAdmin('delete','admins',id,`Removed admin: ${a.email}`);
+    toast(`Removed ${a.email} from admins`,'ok');
+  }catch(e){toast('Failed: '+e.message,'no')}
+}
+
+// ════════════════════════════════════════════════════
+// GENERAL SETTINGS
+// ════════════════════════════════════════════════════
+function populateGeneralSettings(){
+  const g=S.settingsGeneral;
+  document.getElementById('setAppName').value=g.siteName||g.appName||'Scan2Reach';
+  document.getElementById('setTagline').value=g.tagline||'';
+  document.getElementById('setSupportEmail').value=g.supportEmail||'';
+  document.getElementById('setSupportPhone').value=g.supportPhone||'';
+  document.getElementById('setWebsite').value=g.website||'';
+  document.getElementById('setTimezone').value=g.timezone||'Asia/Kolkata';
+  document.getElementById('setMaintenanceMode').checked=!!g.maintenanceMode;
+  document.getElementById('setMaintenanceMessage').value=g.maintenanceMessage||'';
+  onMaintenanceToggle();
+}
+
+function onMaintenanceToggle(){
+  const on=document.getElementById('setMaintenanceMode').checked;
+  document.getElementById('maintWarning').classList.toggle('show',on);
+}
+
+async function saveGeneralSettings(){
+  const data={
+    siteName:document.getElementById('setAppName').value.trim()||'Scan2Reach',
+    appName:document.getElementById('setAppName').value.trim()||'Scan2Reach',
+    tagline:document.getElementById('setTagline').value.trim(),
+    supportEmail:document.getElementById('setSupportEmail').value.trim(),
+    supportPhone:document.getElementById('setSupportPhone').value.trim(),
+    website:document.getElementById('setWebsite').value.trim(),
+    timezone:document.getElementById('setTimezone').value,
+    maintenanceMode:document.getElementById('setMaintenanceMode').checked,
+    maintenanceMessage:document.getElementById('setMaintenanceMessage').value.trim(),
+    currency:S.settingsGeneral.currency||'INR',
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try{
+    await db.collection('settings').doc('general').set(data,{merge:true});
+    S.settingsGeneral={...S.settingsGeneral,...data};
+    logAdmin('update','settings','general','Updated general settings');
+    toast('General settings saved!','ok');
+
+    // Update maintenance banner live
+    if(data.maintenanceMode){
+      document.getElementById('maintenanceBanner').style.display='block';
+      document.getElementById('maintenanceMsg').textContent=data.maintenanceMessage||'System under maintenance';
+    }else{
+      document.getElementById('maintenanceBanner').style.display='none';
+    }
+  }catch(e){toast('Save failed: '+e.message,'no')}
+}
+
+// ════════════════════════════════════════════════════
+// SUBSCRIPTION SETTINGS
+// ════════════════════════════════════════════════════
+function populateSubSettings(){
+  const s=S.settingsSub;
+  document.getElementById('setFreeLimit').value=s.freeProfileLimit||1;
+  document.getElementById('setPremiumLimit').value=s.premiumProfileLimit||10;
+  document.getElementById('setTrialDays').value=s.trialDays||7;
+  document.getElementById('setGraceDays').value=s.gracePeriodDays||3;
+  document.getElementById('setRazorpayKey').value=s.razorpayKeyId||'';
+  document.getElementById('setRazorpaySecret').value=s.razorpaySecret||'';
+}
+
+async function saveSubscriptionSettings(){
+  const data={
+    freeProfileLimit:parseInt(document.getElementById('setFreeLimit').value)||1,
+    premiumProfileLimit:parseInt(document.getElementById('setPremiumLimit').value)||10,
+    trialDays:parseInt(document.getElementById('setTrialDays').value)||7,
+    gracePeriodDays:parseInt(document.getElementById('setGraceDays').value)||3,
+    razorpayKeyId:document.getElementById('setRazorpayKey').value.trim(),
+    razorpaySecret:document.getElementById('setRazorpaySecret').value.trim(),
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try{
+    await db.collection('settings').doc('subscription').set(data,{merge:true});
+    S.settingsSub={...S.settingsSub,...data};
+    logAdmin('update','settings','subscription','Updated subscription settings');
+    toast('Subscription settings saved!','ok');
+  }catch(e){toast('Save failed: '+e.message,'no')}
+}
+
+// ════════════════════════════════════════════════════
+// NOTIFICATION SETTINGS
+// ════════════════════════════════════════════════════
+function populateNotifSettings(){
+  const n=S.settingsNotif;
+  document.getElementById('setEmailNotifs').checked=!!n.emailNotifications;
+  document.getElementById('setPushNotifs').checked=!!n.pushNotifications;
+  document.getElementById('setNewUserAlert').checked=!!n.newUserAlert;
+  document.getElementById('setPaymentAlert').checked=!!n.newPaymentAlert;
+  document.getElementById('setWeeklyReport').checked=!!n.weeklyReport;
+  document.getElementById('setSmtpHost').value=n.smtpHost||'';
+  document.getElementById('setSmtpPort').value=n.smtpPort||'';
+  document.getElementById('setSmtpUser').value=n.smtpUsername||'';
+  document.getElementById('setSmtpPass').value=n.smtpPassword||'';
+  document.getElementById('setFcmKey').value=n.fcmServerKey||'';
+  document.getElementById('setAlertEmail').value=n.alertEmail||'';
+}
+
+async function saveNotificationSettings(){
+  const data={
+    emailNotifications:document.getElementById('setEmailNotifs').checked,
+    pushNotifications:document.getElementById('setPushNotifs').checked,
+    newUserAlert:document.getElementById('setNewUserAlert').checked,
+    newPaymentAlert:document.getElementById('setPaymentAlert').checked,
+    weeklyReport:document.getElementById('setWeeklyReport').checked,
+    smtpHost:document.getElementById('setSmtpHost').value.trim(),
+    smtpPort:parseInt(document.getElementById('setSmtpPort').value)||587,
+    smtpUsername:document.getElementById('setSmtpUser').value.trim(),
+    smtpPassword:document.getElementById('setSmtpPass').value.trim(),
+    fcmServerKey:document.getElementById('setFcmKey').value.trim(),
+    alertEmail:document.getElementById('setAlertEmail').value.trim(),
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try{
+    await db.collection('settings').doc('notifications').set(data,{merge:true});
+    S.settingsNotif={...S.settingsNotif,...data};
+    logAdmin('update','settings','notifications','Updated notification settings');
+    toast('Notification settings saved!','ok');
+  }catch(e){toast('Save failed: '+e.message,'no')}
+}
+
+// ════════════════════════════════════════════════════
+// TAB & SUBTAB SWITCHING
+// ════════════════════════════════════════════════════
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    if((tab==='roles'&&b.textContent.includes('Roles'))||(tab==='settings'&&b.textContent.includes('System')))b.classList.add('active');
+  });
+  const el=document.getElementById('tab-'+tab);
+  if(el)el.classList.add('active');
+  document.querySelectorAll('.nav-item[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
+  const titles={roles:['👑 Roles & Permissions','Manage admin roles and access control'],settings:['⚙️ System Settings','Configure platform settings']};
+  const t=titles[tab]||['Settings',''];
+  document.getElementById('headerTitle').textContent=t[0];
+  document.getElementById('headerSub').textContent=t[1];
+  if(window.innerWidth<=768)document.getElementById('sidebar').classList.remove('open');
+}
+
+function switchSubtab(sub){
+  document.querySelectorAll('.subtab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.subtab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.subtab-btn').forEach(b=>{
+    if((sub==='general'&&b.textContent.includes('General'))||(sub==='subscription'&&b.textContent.includes('Subscription'))||(sub==='notifications'&&b.textContent.includes('Notification')))b.classList.add('active');
+  });
+  const el=document.getElementById('subtab-'+sub);
+  if(el)el.classList.add('active');
+}
+
+// ════════════════════════════════════════════════════
+// MODALS
+// ════════════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+
+// ════════════════════════════════════════════════════
+// SEARCH
+// ════════════════════════════════════════════════════
+function openSearch(){
+  document.getElementById('searchOverlay').classList.add('show');
+  document.getElementById('globalSearchInput').value='';
+  document.getElementById('globalSearchInput').focus();
+  document.getElementById('searchResults').innerHTML='';
+}
+function closeSearch(){document.getElementById('searchOverlay').classList.remove('show')}
+
+function doGlobalSearch(){
+  const q=document.getElementById('globalSearchInput').value.toLowerCase().trim();
+  const r=document.getElementById('searchResults');
+  if(!q){r.innerHTML='';return}
+  let html='';
+
+  const rm=S.roles.filter(rl=>(rl.name||'').toLowerCase().includes(q)||(rl.description||'').toLowerCase().includes(q)||(rl.permissions||[]).some(p=>p.toLowerCase().includes(q)));
+  if(rm.length){
+    html+='<div class="sr-section"><h4>🎭 Roles</h4>';
+    rm.forEach(rl=>{
+      html+=`<div class="sr-item" onclick="closeSearch();switchTab('roles')"><span class="sr-icon">🎭</span><div><div class="sr-title">${esc(rl.name)}</div><div class="sr-sub">${esc(rl.description||'')}</div></div></div>`;
+    });
+    html+='</div>';
+  }
+
+  const am=S.admins.filter(a=>(a.name||'').toLowerCase().includes(q)||(a.email||'').toLowerCase().includes(q)||(a.role||'').toLowerCase().includes(q));
+  if(am.length){
+    html+='<div class="sr-section"><h4>👤 Admins</h4>';
+    am.forEach(a=>{
+      html+=`<div class="sr-item" onclick="closeSearch();switchTab('roles')"><span class="sr-icon">👤</span><div><div class="sr-title">${esc(a.name||a.email)}</div><div class="sr-sub">${esc(a.role||'admin')}</div></div></div>`;
+    });
+    html+='</div>';
+  }
+
+  // Search settings keys
+  const settingsKeys=['maintenance','email','smtp','razorpay','notification','push','fcm','trial','premium','free'];
+  const matched=settingsKeys.filter(k=>k.includes(q));
+  if(matched.length){
+    html+='<div class="sr-section"><h4>⚙️ Settings</h4>';
+    matched.forEach(k=>{
+      const sub=k.includes('smtp')||k.includes('email')||k.includes('push')||k.includes('fcm')||k.includes('notification')?'notifications':k.includes('razorpay')||k.includes('trial')||k.includes('premium')||k.includes('free')?'subscription':'general';
+      html+=`<div class="sr-item" onclick="closeSearch();switchTab('settings');switchSubtab('${sub}')"><span class="sr-icon">⚙️</span><div><div class="sr-title">${k.charAt(0).toUpperCase()+k.slice(1)} Settings</div><div class="sr-sub">${sub} tab</div></div></div>`;
+    });
+    html+='</div>';
+  }
+
+  if(!html)html='<div class="no-data" style="padding:32px"><div class="no-icon">🔍</div>No results</div>';
+  r.innerHTML=html;
+}
+
+// ════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════
+function toMs(ts){
+  if(!ts)return null;
+  if(ts.toDate)return ts.toDate().getTime();
+  if(ts.seconds||ts._seconds)return((ts.seconds||ts._seconds)*1000);
+  if(ts instanceof Date)return ts.getTime();
+  if(typeof ts==='string')return new Date(ts).getTime();
+  if(typeof ts==='number')return ts;
+  return null;
+}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function hashStr(s){let h=0;for(let i=0;i<(s||'').length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0}return h}
+function toast(msg,type='info'){
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div');t.className=`toast toast-${type}`;
+  const icons={ok:'✅',no:'❌',info:'ℹ️'};
+  t.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.animation='slideOut .3s ease forwards';setTimeout(()=>t.remove(),300)},3500);
+}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
+
+async function logAdmin(action,collection,targetId,details){
+  try{
+    await db.collection('admin_logs').add({
+      adminId:S.admin.id,adminEmail:S.admin.email,adminName:S.admin.name||S.admin.email,
+      action,targetCollection:collection,targetId:targetId||null,details:details||'',
+      timestamp:firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){console.warn('Log failed:',e)}
+}
+
+// ════════════════════════════════════════════════════
+// KEYBOARD
+// ════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeSearch();closeModal('roleModal');closeModal('adminModal')}
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openSearch()}
+});
+
+if(location.hash==='#settings')setTimeout(()=>switchTab('settings'),200);
+</script>
+</body>
+</html>

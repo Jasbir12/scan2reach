@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Scan2Reach</title>
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--gray-50);
+            min-height: 100vh;
+            color: var(--gray-800);
+        }
+
+        /* Navbar */
+        .navbar {
+            background: var(--white);
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-content {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .back-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--gray-100);
+            border: none;
+            border-radius: 8px;
+            color: var(--gray-700);
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: var(--gray-200);
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 0.25rem;
+        }
+
+        .page-subtitle {
+            color: var(--gray-500);
+        }
+
+        /* Section Card */
+        .section {
+            background: var(--white);
+            border-radius: 12px;
+            border: 1px solid var(--gray-200);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--gray-100);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .section-icon.account { background: #ede9fe; color: #7c3aed; }
+        .section-icon.security { background: #d1fae5; color: var(--success); }
+        .section-icon.notifications { background: #fef3c7; color: var(--warning); }
+        .section-icon.appearance { background: #fce7f3; color: #ec4899; }
+        .section-icon.danger { background: #fee2e2; color: var(--danger); }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .section-body {
+            padding: 1.25rem;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.375rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            color: var(--gray-700);
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-input:disabled {
+            background: var(--gray-100);
+            color: var(--gray-500);
+        }
+
+        .form-hint {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            margin-top: 0.25rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1.25rem;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-700);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-200);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-outline-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .btn-outline-danger:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Toggle Switch */
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .toggle-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .toggle-item:first-child {
+            padding-top: 0;
+        }
+
+        .toggle-label {
+            font-weight: 500;
+            color: var(--gray-800);
+        }
+
+        .toggle-desc {
+            font-size: 0.8125rem;
+            color: var(--gray-500);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: var(--gray-300);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            content: "";
+            position: absolute;
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: var(--primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        /* Danger Zone */
+        .danger-section {
+            border-color: #fecaca;
+        }
+
+        .danger-section .section-header {
+            background: #fef2f2;
+        }
+
+        .danger-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .danger-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .danger-item:first-child {
+            padding-top: 0;
+        }
+
+        .danger-info h4 {
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 0.125rem;
+        }
+
+        .danger-info p {
+            font-size: 0.8125rem;
+            color: var(--gray-500);
+        }
+
+        /* User Info Card */
+        .user-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: 10px;
+            margin-bottom: 1.25rem;
+        }
+
+        .user-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #a855f7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .user-info h3 {
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .user-info p {
+            font-size: 0.875rem;
+            color: var(--gray-500);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--gray-900);
+            color: white;
+            padding: 0.875rem 1.25rem;
+            border-radius: 10px;
+            font-weight: 500;
+            z-index: 2000;
+            transform: translateX(150%);
+            transition: transform 0.3s;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 400px;
+            padding: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-text {
+            color: var(--gray-600);
+            margin-bottom: 1.25rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p style="color: var(--gray-500);">Loading settings...</p>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="hidden">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="navbar-content">
+                <a href="/" class="navbar-brand">
+                    📇 Scan2Reach
+                </a>
+                <a href="/dashboard.html" class="back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Container -->
+        <div class="main-container">
+            <div class="page-header">
+                <h1 class="page-title">⚙️ Settings</h1>
+                <p class="page-subtitle">Manage your account and preferences</p>
+            </div>
+
+            <!-- Account Section -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-icon account">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h2 class="section-title">Account</h2>
+                </div>
+                <div class="section-body">
+                    <div class="user-card">
+                        <div class="user-avatar" id="userAvatar">U</div>
+                        <div class="user-info">
+                            <h3 id="displayName">User</h3>
+                            <p id="userEmail">user@email.com</p>
+                        </div>
+                    </div>
+
+                    <form id="accountForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" class="form-input" id="fullName" placeholder="Your name">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Phone</label>
+                                <input type="tel" class="form-input" id="phone" placeholder="+91 98765 43210">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Company</label>
+                            <input type="text" class="form-input" id="company" placeholder="Your company">
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">
+                            <i class="fas fa-check"></i> Save Changes
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Security Section -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-icon security">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <h2 class="section-title">Security</h2>
+                </div>
+                <div class="section-body">
+                    <form id="passwordForm">
+                        <div class="form-group">
+                            <label class="form-label">Current Password</label>
+                            <input type="password" class="form-input" id="currentPassword" placeholder="••••••••">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">New Password</label>
+                                <input type="password" class="form-input" id="newPassword" placeholder="••••••••">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Confirm Password</label>
+                                <input type="password" class="form-input" id="confirmPassword" placeholder="••••••••">
+                            </div>
+                        </div>
+                        <p class="form-hint" style="margin-bottom: 0.75rem;">Minimum 8 characters</p>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-key"></i> Update Password
+                        </button>
+                    </form>
+
+                    <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--gray-200);">
+
+                    <button class="btn btn-secondary" id="logoutBtn" style="width: 100%;">
+                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                    </button>
+                </div>
+            </section>
+
+            <!-- Notifications Section -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-icon notifications">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <h2 class="section-title">Notifications</h2>
+                </div>
+                <div class="section-body">
+                    <div class="toggle-item">
+                        <div>
+                            <div class="toggle-label">Profile Views</div>
+                            <div class="toggle-desc">Get notified when someone views your profile</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifyViews" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-item">
+                        <div>
+                            <div class="toggle-label">Contact Saves</div>
+                            <div class="toggle-desc">Get notified when someone saves your contact</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifyContacts" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-item">
+                        <div>
+                            <div class="toggle-label">Weekly Summary</div>
+                            <div class="toggle-desc">Receive weekly analytics summary</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifyWeekly">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <button class="btn btn-primary" style="margin-top: 1rem;" id="saveNotificationsBtn">
+                        <i class="fas fa-check"></i> Save Preferences
+                    </button>
+                </div>
+            </section>
+
+            <!-- Appearance Section -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-icon appearance">
+                        <i class="fas fa-palette"></i>
+                    </div>
+                    <h2 class="section-title">Appearance</h2>
+                </div>
+                <div class="section-body">
+                    <div class="toggle-item">
+                        <div>
+                            <div class="toggle-label">Dark Mode</div>
+                            <div class="toggle-desc">Switch to dark theme</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="darkModeToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Danger Zone -->
+            <section class="section danger-section">
+                <div class="section-header">
+                    <div class="section-icon danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h2 class="section-title">Danger Zone</h2>
+                </div>
+                <div class="section-body">
+                    <div class="danger-item">
+                        <div class="danger-info">
+                            <h4>Export Data</h4>
+                            <p>Download all your data as JSON</p>
+                        </div>
+                        <button class="btn btn-secondary" id="exportBtn">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+
+                    <div class="danger-item">
+                        <div class="danger-info">
+                            <h4>Delete Account</h4>
+                            <p>Permanently delete your account</p>
+                        </div>
+                        <button class="btn btn-outline-danger" id="deleteAccountBtn">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <h3 class="modal-title">⚠️ Delete Account?</h3>
+            <p class="modal-text">This action cannot be undone. All your data will be permanently deleted.</p>
+            <div class="form-group">
+                <label class="form-label">Type "DELETE" to confirm</label>
+                <input type="text" class="form-input" id="deleteConfirmInput" placeholder="DELETE">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn" disabled>Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let userData = null;
+
+        // Auth Check
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                await loadUserData();
+                updateUI();
+                setupEvents();
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('mainContent').classList.remove('hidden');
+            } else {
+                window.location.href = '/login.html';
+            }
+        });
+
+        // Load User Data
+        async function loadUserData() {
+            try {
+                const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+                if (userDoc.exists()) {
+                    userData = userDoc.data();
+                } else {
+                    userData = {
+                        email: currentUser.email,
+                        displayName: currentUser.displayName || '',
+                        createdAt: new Date().toISOString(),
+                        notifications: { views: true, contacts: true, weekly: false },
+                        appearance: { darkMode: false }
+                    };
+                    await setDoc(doc(db, 'users', currentUser.uid), userData);
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+
+        // Update UI
+        function updateUI() {
+            const name = currentUser.displayName || currentUser.email.split('@')[0];
+            
+            document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+            document.getElementById('displayName').textContent = name;
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('fullName').value = currentUser.displayName || '';
+            document.getElementById('phone').value = userData?.phone || '';
+            document.getElementById('company').value = userData?.company || '';
+
+            // Notifications
+            document.getElementById('notifyViews').checked = userData?.notifications?.views ?? true;
+            document.getElementById('notifyContacts').checked = userData?.notifications?.contacts ?? true;
+            document.getElementById('notifyWeekly').checked = userData?.notifications?.weekly ?? false;
+
+            // Appearance
+            document.getElementById('darkModeToggle').checked = userData?.appearance?.darkMode ?? false;
+            applyDarkMode(userData?.appearance?.darkMode ?? false);
+        }
+
+        // Setup Events
+        function setupEvents() {
+            // Account Form
+            document.getElementById('accountForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fullName = document.getElementById('fullName').value.trim();
+                const phone = document.getElementById('phone').value.trim();
+                const company = document.getElementById('company').value.trim();
+
+                try {
+                    await updateProfile(currentUser, { displayName: fullName });
+                    await updateDoc(doc(db, 'users', currentUser.uid), {
+                        displayName: fullName, phone, company,
+                        updatedAt: new Date().toISOString()
+                    });
+                    userData = { ...userData, displayName: fullName, phone, company };
+                    updateUI();
+                    showToast('Saved! ✓', 'success');
+                } catch (error) {
+                    showToast('Failed to save', 'error');
+                }
+            });
+
+            // Password Form
+            document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const current = document.getElementById('currentPassword').value;
+                const newPass = document.getElementById('newPassword').value;
+                const confirm = document.getElementById('confirmPassword').value;
+
+                if (!current || !newPass || !confirm) {
+                    showToast('Fill all fields', 'error');
+                    return;
+                }
+                if (newPass !== confirm) {
+                    showToast('Passwords do not match', 'error');
+                    return;
+                }
+                if (newPass.length < 8) {
+                    showToast('Min 8 characters', 'error');
+                    return;
+                }
+
+                try {
+                    const credential = EmailAuthProvider.credential(currentUser.email, current);
+                    await reauthenticateWithCredential(currentUser, credential);
+                    await updatePassword(currentUser, newPass);
+                    document.getElementById('passwordForm').reset();
+                    showToast('Password updated! ✓', 'success');
+                } catch (error) {
+                    if (error.code === 'auth/wrong-password') {
+                        showToast('Wrong current password', 'error');
+                    } else {
+                        showToast('Failed to update', 'error');
+                    }
+                }
+            });
+
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                await signOut(auth);
+                window.location.href = '/login.html';
+            });
+
+            // Save Notifications
+            document.getElementById('saveNotificationsBtn').addEventListener('click', async () => {
+                const notifications = {
+                    views: document.getElementById('notifyViews').checked,
+                    contacts: document.getElementById('notifyContacts').checked,
+                    weekly: document.getElementById('notifyWeekly').checked
+                };
+
+                try {
+                    await updateDoc(doc(db, 'users', currentUser.uid), { notifications });
+                    userData.notifications = notifications;
+                    showToast('Preferences saved! ✓', 'success');
+                } catch (error) {
+                    showToast('Failed to save', 'error');
+                }
+            });
+
+            // Dark Mode
+            document.getElementById('darkModeToggle').addEventListener('change', async (e) => {
+                const darkMode = e.target.checked;
+                applyDarkMode(darkMode);
+
+                try {
+                    await updateDoc(doc(db, 'users', currentUser.uid), {
+                        appearance: { darkMode }
+                    });
+                    userData.appearance = { darkMode };
+                } catch (error) {
+                    console.error('Error saving appearance:', error);
+                }
+            });
+
+            // Export Data
+            document.getElementById('exportBtn').addEventListener('click', async () => {
+                try {
+                    const profilesQuery = query(
+                        collection(db, 'profiles'),
+                        where('userId', '==', currentUser.uid)
+                    );
+                    const profilesSnapshot = await getDocs(profilesQuery);
+                    const profiles = [];
+                    profilesSnapshot.forEach(doc => profiles.push({ id: doc.id, ...doc.data() }));
+
+                    const exportData = {
+                        exportDate: new Date().toISOString(),
+                        user: { email: currentUser.email, ...userData },
+                        profiles
+                    };
+
+                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `scan2reach-export-${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+
+                    showToast('Data exported! 📦', 'success');
+                } catch (error) {
+                    showToast('Export failed', 'error');
+                }
+            });
+
+            // Delete Account Modal
+            document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+                document.getElementById('deleteModal').classList.add('show');
+            });
+
+            document.getElementById('cancelDeleteBtn').addEventListener('click', () => {
+                document.getElementById('deleteModal').classList.remove('show');
+                document.getElementById('deleteConfirmInput').value = '';
+            });
+
+            document.getElementById('deleteConfirmInput').addEventListener('input', (e) => {
+                document.getElementById('confirmDeleteBtn').disabled = e.target.value !== 'DELETE';
+            });
+
+            document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+                try {
+                    // Delete profiles
+                    const profilesQuery = query(
+                        collection(db, 'profiles'),
+                        where('userId', '==', currentUser.uid)
+                    );
+                    const profilesSnapshot = await getDocs(profilesQuery);
+                    const deletePromises = [];
+                    profilesSnapshot.forEach(doc => deletePromises.push(deleteDoc(doc.ref)));
+                    await Promise.all(deletePromises);
+
+                    // Delete user doc
+                    await deleteDoc(doc(db, 'users', currentUser.uid));
+
+                    // Delete auth user
+                    await deleteUser(currentUser);
+
+                    showToast('Account deleted. Goodbye!', 'success');
+                    setTimeout(() => window.location.href = '/', 2000);
+                } catch (error) {
+                    if (error.code === 'auth/requires-recent-login') {
+                        showToast('Please log in again to delete', 'error');
+                    } else {
+                        showToast('Failed to delete', 'error');
+                    }
+                    document.getElementById('deleteModal').classList.remove('show');
+                }
+            });
+        }
+
+        // Apply Dark Mode
+        function applyDarkMode(enabled) {
+            if (enabled) {
+                document.body.style.background = '#111827';
+                document.body.style.color = '#f9fafb';
+                document.querySelectorAll('.section, .navbar').forEach(el => {
+                    el.style.background = '#1f2937';
+                    el.style.borderColor = '#374151';
+                });
+                document.querySelectorAll('.form-input').forEach(el => {
+                    el.style.background = '#374151';
+                    el.style.borderColor = '#4b5563';
+                    el.style.color = '#f9fafb';
+                });
+                document.querySelectorAll('.user-card').forEach(el => {
+                    el.style.background = '#374151';
+                });
+            } else {
+                document.body.style.background = '';
+                document.body.style.color = '';
+                document.querySelectorAll('.section, .navbar, .form-input, .user-card').forEach(el => {
+                    el.style.background = '';
+                    el.style.borderColor = '';
+                    el.style.color = '';
+                });
+            }
+        }
+
+        // Show Toast
+        function showToast(message, type = 'default') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>

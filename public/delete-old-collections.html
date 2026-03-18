@@ -1,0 +1,83 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Delete Old Collections</title>
+</head>
+<body>
+    <h1>Delete Old Firestore Collections</h1>
+    <button onclick="deleteOldCollections()" style="padding: 15px 30px; font-size: 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer;">
+        🗑️ Delete Old Collections (products, plans)
+    </button>
+    <div id="log" style="margin-top: 20px; padding: 20px; background: #000; color: #0f0; font-family: monospace; border-radius: 8px;"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        function log(msg) {
+            document.getElementById('log').innerHTML += msg + '<br>';
+        }
+
+        async function deleteCollection(collectionName) {
+            log('🗑️ Deleting collection: ' + collectionName);
+            
+            const snapshot = await db.collection(collectionName).get();
+            
+            if (snapshot.empty) {
+                log('✅ Collection "' + collectionName + '" is already empty or does not exist');
+                return;
+            }
+
+            const batch = db.batch();
+            let count = 0;
+
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+                count++;
+            });
+
+            await batch.commit();
+            log('✅ Deleted ' + count + ' documents from "' + collectionName + '"');
+        }
+
+        async function deleteOldCollections() {
+            if (!confirm('⚠️ This will DELETE the old "products" and "plans" collections.\n\nAre you sure?')) {
+                return;
+            }
+
+            log('🚀 Starting cleanup...');
+
+            try {
+                await deleteCollection('products');
+                await deleteCollection('plans');
+                
+                log('');
+                log('🎉 Cleanup complete!');
+                log('');
+                log('✅ Your Firestore now has clean structure:');
+                log('   - admins/');
+                log('   - users/');
+                log('   - settings/general');
+                log('   - settings/pricing');
+                log('   - settings/plans');
+                log('   - admin_logs/');
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

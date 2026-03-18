@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Designer - Scan2Reach</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-500: #6b7280;
+            --gray-700: #374151;
+            --gray-900: #111827;
+        }
+        
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            color: white;
+            position: relative;
+        }
+
+        /* Background decoration */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: float 8s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(5deg); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .header h1 {
+            font-size: 2.75rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            opacity: 0.95;
+        }
+
+        /* Main Layout */
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Sidebar */
+        .templates-sidebar {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            height: fit-content;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .templates-sidebar h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .template-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .template-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: left;
+        }
+
+        .template-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(8px);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .template-btn.active {
+            background: white;
+            color: var(--gray-900);
+            border-color: white;
+            box-shadow: 0 8px 25px rgba(255,255,255,0.3);
+        }
+
+        .template-btn-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .template-icon {
+            font-size: 1.75rem;
+        }
+
+        .template-name {
+            font-weight: 700;
+            font-size: 1.0625rem;
+        }
+
+        .template-desc {
+            font-size: 0.8125rem;
+            opacity: 0.75;
+            margin-left: 2.5rem;
+        }
+
+        .template-btn.active .template-desc {
+            opacity: 0.6;
+        }
+
+        /* Preview Area */
+        .preview-area {
+            background: white;
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.35);
+        }
+
+        .card-preview {
+            width: 100%;
+            max-width: 1004px;
+            margin: 0 auto 2.5rem;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.25);
+            position: relative;
+        }
+
+        .card-preview::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 16px;
+            pointer-events: none;
+        }
+
+        #qr-card-canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Download Section */
+        .download-section {
+            max-width: 1004px;
+            margin: 0 auto;
+        }
+
+        .download-section h3 {
+            color: var(--gray-900);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 1.125rem 1.75rem;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.625rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-700);
+            border: 2px solid var(--gray-200);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-200);
+            border-color: var(--gray-300);
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Back Link */
+        .back-link {
+            text-align: center;
+            margin-top: 2.5rem;
+        }
+
+        .back-link a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.125rem;
+            opacity: 0.9;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .back-link a:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+
+        /* Canvas Dimensions Info */
+        .canvas-info {
+            text-align: center;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: var(--gray-50);
+            border-radius: 10px;
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            .templates-sidebar {
+                order: 2;
+            }
+            .preview-area {
+                order: 1;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+            .header h1 {
+                font-size: 2rem;
+            }
+            .header-icon {
+                font-size: 3rem;
+            }
+            .preview-area {
+                padding: 1.5rem;
+            }
+            .templates-sidebar {
+                padding: 1.5rem;
+            }
+            .download-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-icon">💳</div>
+            <h1>Card Designer</h1>
+            <p>Choose a template and download your professional digital card</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading">
+            <div class="spinner"></div>
+            <p style="font-size: 1.125rem; font-weight: 500;">Loading your profile...</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content hidden" id="mainContent">
+            <!-- Templates Sidebar -->
+            <div class="templates-sidebar">
+                <h2>
+                    <span>🎨</span>
+                    Choose Design
+                </h2>
+                <div class="template-list">
+                    <div class="template-btn active" data-template="elegant">
+                        <div class="template-btn-header">
+                            <span class="template-icon">💼</span>
+                            <span class="template-name">Elegant Black</span>
+                        </div>
+                        <div class="template-desc">Professional • Gold Accent</div>
+                    </div>
+                    <div class="template-btn" data-template="modern">
+                        <div class="template-btn-header">
+                            <span class="template-icon">✨</span>
+                            <span class="template-name">Modern Gradient</span>
+                        </div>
+                        <div class="template-desc">Vibrant • Purple-Blue</div>
+                    </div>
+                    <div class="template-btn" data-template="classic">
+                        <div class="template-btn-header">
+                            <span class="template-icon">👔</span>
+                            <span class="template-name">Classic White</span>
+                        </div>
+                        <div class="template-desc">Clean • Timeless</div>
+                    </div>
+                    <div class="template-btn" data-template="creative">
+                        <div class="template-btn-header">
+                            <span class="template-icon">🎨</span>
+                            <span class="template-name">Creative Colorful</span>
+                        </div>
+                        <div class="template-desc">Bold • Unique</div>
+                    </div>
+                    <div class="template-btn" data-template="minimal">
+                        <div class="template-btn-header">
+                            <span class="template-icon">⚪</span>
+                            <span class="template-name">Minimal Clean</span>
+                        </div>
+                        <div class="template-desc">Simple • Modern</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Area -->
+            <div class="preview-area">
+                <div class="canvas-info">
+                    📐 Card Dimensions: 1004 × 638 pixels (Standard Business Card 3.5" × 2.2")
+                </div>
+                
+                <div class="card-preview">
+                    <canvas id="qr-card-canvas" width="1004" height="638"></canvas>
+                </div>
+
+                <div class="download-section">
+                    <h3>
+                        <span>📥</span>
+                        Download Your Card
+                    </h3>
+                    <div class="download-grid">
+                        <button class="btn btn-primary" id="downloadPNG">
+                            <span>🖼️</span>
+                            PNG Image
+                        </button>
+                        <button class="btn btn-primary" id="downloadPDF">
+                            <span>📄</span>
+                            PDF (Print)
+                        </button>
+                        <button class="btn btn-secondary" id="copyLink">
+                            <span>🔗</span>
+                            Copy Profile Link
+                        </button>
+                        <button class="btn btn-success" id="backToProfiles">
+                            <span>✅</span>
+                            Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back Link -->
+        <div class="back-link">
+            <a href="/my-profiles.html">
+                <span>←</span>
+                Back to My Profiles
+            </a>
+        </div>
+    </div>
+
+    <!-- Hidden QR Container -->
+    <div id="qr-temp" style="display: none;"></div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Get profile ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const profileId = urlParams.get('profileId');
+
+        if (!profileId) {
+            alert('Profile ID missing');
+            window.location.href = '/my-profiles.html';
+        }
+
+        let profileData = null;
+        let selectedTemplate = 'elegant';
+        let qrDataUrl = '';
+        let currentUser = null;
+
+        // ========== AUTH & PROFILE LOADING ==========
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                console.log('✅ User authenticated:', user.email);
+                await loadProfile();
+            } else {
+                console.log('❌ No user, redirecting to login');
+                alert('Please login to access the designer');
+                window.location.href = '/login.html';
+            }
+        });
+
+        async function loadProfile() {
+            try {
+                const docRef = doc(db, 'profiles', profileId);
+                const docSnap = await getDoc(docRef);
+
+                if (!docSnap.exists()) {
+                    alert('Profile not found');
+                    window.location.href = '/my-profiles.html';
+                    return;
+                }
+
+                profileData = docSnap.data();
+                
+                // ✅ Security: Verify ownership
+                if (profileData.userId !== currentUser.uid) {
+                    console.error('❌ Unauthorized access');
+                    alert('You do not have permission to access this profile');
+                    window.location.href = '/my-profiles.html';
+                    return;
+                }
+                
+                // ✅ Check subscription status
+                const status = profileData.subscriptionStatus || profileData.status;
+                if (status !== 'active' && status !== 'paid') {
+                    alert('Profile subscription is not active. Please activate your subscription first.');
+                    window.location.href = '/my-profiles.html';
+                    return;
+                }
+                
+                console.log('✅ Profile loaded:', profileData);
+
+                await generateQRCode();
+                await drawCard();
+                
+                // Show main content
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('mainContent').classList.remove('hidden');
+
+                setupEventListeners();
+
+            } catch (error) {
+                console.error('❌ Error loading profile:', error);
+                alert('Error loading profile: ' + error.message);
+                window.location.href = '/my-profiles.html';
+            }
+        }
+
+        // ========== QR CODE GENERATION ==========
+async function generateQRCode() {
+    // ✅ Use new URL format
+    const profileUrl = `${window.location.origin}/profile/${profileId}`;
+    
+    const qr = qrcode(0, 'H'); // Type 0, Error correction level H
+    qr.addData(profileUrl);
+    qr.make();
+    
+    // Generate as base64 image
+    const moduleCount = qr.getModuleCount();
+    const cellSize = 10;
+    const margin = 0;
+    const size = moduleCount * cellSize + margin * 2;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    
+    // White background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+    
+    // Black modules
+    ctx.fillStyle = '#000000';
+    for (let row = 0; row < moduleCount; row++) {
+        for (let col = 0; col < moduleCount; col++) {
+            if (qr.isDark(row, col)) {
+                ctx.fillRect(
+                    margin + col * cellSize,
+                    margin + row * cellSize,
+                    cellSize,
+                    cellSize
+                );
+            }
+        }
+    }
+    
+    qrDataUrl = canvas.toDataURL('image/png');
+    console.log('✅ QR Code generated');
+}
+
+        // ========== CARD DRAWING ==========
+        async function drawCard() {
+            const canvas = document.getElementById('qr-card-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw based on selected template
+            switch(selectedTemplate) {
+                case 'elegant':
+                    await drawElegantTemplate(ctx, canvas);
+                    break;
+                case 'modern':
+                    await drawModernTemplate(ctx, canvas);
+                    break;
+                case 'classic':
+                    await drawClassicTemplate(ctx, canvas);
+                    break;
+                case 'creative':
+                    await drawCreativeTemplate(ctx, canvas);
+                    break;
+                case 'minimal':
+                    await drawMinimalTemplate(ctx, canvas);
+                    break;
+                default:
+                    await drawElegantTemplate(ctx, canvas);
+            }
+        }
+
+        // ========== TEMPLATE: ELEGANT BLACK ==========
+        async function drawElegantTemplate(ctx, canvas) {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Background - Rich black gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+            bgGrad.addColorStop(0, '#1a1a2e');
+            bgGrad.addColorStop(0.5, '#16213e');
+            bgGrad.addColorStop(1, '#0f0f23');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Decorative gold lines
+            ctx.strokeStyle = '#d4af37';
+            ctx.lineWidth = 3;
+            
+            // Top border line
+            ctx.beginPath();
+            ctx.moveTo(40, 40);
+            ctx.lineTo(w - 40, 40);
+            ctx.stroke();
+            
+            // Bottom border line
+            ctx.beginPath();
+            ctx.moveTo(40, h - 40);
+            ctx.lineTo(w - 40, h - 40);
+            ctx.stroke();
+
+            // Corner accents
+            drawCornerAccent(ctx, 30, 30, 60, '#d4af37');
+            drawCornerAccent(ctx, w - 30, 30, 60, '#d4af37', true);
+            drawCornerAccent(ctx, 30, h - 30, 60, '#d4af37', false, true);
+            drawCornerAccent(ctx, w - 30, h - 30, 60, '#d4af37', true, true);
+
+            // Profile info section (left side)
+            const name = profileData.name || 'Your Name';
+            const designation = profileData.designation || profileData.title || 'Professional';
+            const company = profileData.company || profileData.organization || '';
+            const email = profileData.email || '';
+            const phone = profileData.phone || profileData.mobile || '';
+
+            // Name - Large gold text
+            ctx.fillStyle = '#d4af37';
+            ctx.font = 'bold 52px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(name, 70, 150);
+
+            // Designation
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '600 28px "Plus Jakarta Sans", sans-serif';
+            ctx.fillText(designation, 70, 195);
+
+            // Company
+            if (company) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.font = '500 22px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(company, 70, 235);
+            }
+
+            // Divider line
+            ctx.strokeStyle = 'rgba(212, 175, 55, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(70, 280);
+            ctx.lineTo(500, 280);
+            ctx.stroke();
+
+            // Contact details
+            let contactY = 330;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.font = '500 20px "Plus Jakarta Sans", sans-serif';
+
+            if (email) {
+                ctx.fillText('✉  ' + email, 70, contactY);
+                contactY += 40;
+            }
+            if (phone) {
+                ctx.fillText('📱  ' + phone, 70, contactY);
+                contactY += 40;
+            }
+
+            // Website/Profile URL
+            const profileUrl = `${window.location.origin}/profile/${profileId}`;
+            ctx.fillStyle = 'rgba(212, 175, 55, 0.8)';
+            ctx.font = '500 16px "Plus Jakarta Sans", sans-serif';
+            ctx.fillText('🔗  ' + profileUrl, 70, h - 80);
+
+            // QR Code section (right side)
+            await drawQRWithFrame(ctx, w - 250, h/2 - 110, 200, '#d4af37', '#ffffff');
+
+            // Scan me text
+            ctx.fillStyle = '#d4af37';
+            ctx.font = 'bold 18px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('SCAN TO CONNECT', w - 150, h/2 + 120);
+            ctx.textAlign = 'left';
+
+            // Branding
+            ctx.fillStyle = 'rgba(212, 175, 55, 0.6)';
+            ctx.font = '500 14px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('Powered by Scan2Reach', w - 70, h - 60);
+            ctx.textAlign = 'left';
+        }
+
+        // ========== TEMPLATE: MODERN GRADIENT ==========
+        async function drawModernTemplate(ctx, canvas) {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Vibrant gradient background
+            const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+            bgGrad.addColorStop(0, '#667eea');
+            bgGrad.addColorStop(0.5, '#764ba2');
+            bgGrad.addColorStop(1, '#f093fb');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Decorative circles
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.arc(-100, h + 50, 300, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(w + 50, -100, 250, 0, Math.PI * 2);
+            ctx.fill();
+
+            // White content card
+            roundRect(ctx, 50, 50, w - 100, h - 100, 30);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.fill();
+
+            // Profile info
+            const name = profileData.name || 'Your Name';
+            const designation = profileData.designation || profileData.title || 'Professional';
+            const company = profileData.company || profileData.organization || '';
+            const email = profileData.email || '';
+            const phone = profileData.phone || profileData.mobile || '';
+
+            // Name with gradient
+            ctx.fillStyle = '#667eea';
+            ctx.font = 'bold 48px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(name, 100, 150);
+
+            // Designation
+            ctx.fillStyle = '#374151';
+            ctx.font = '600 26px "Plus Jakarta Sans", sans-serif';
+            ctx.fillText(designation, 100, 195);
+
+            // Company
+            if (company) {
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '500 20px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(company, 100, 235);
+            }
+
+            // Gradient divider
+            const divGrad = ctx.createLinearGradient(100, 0, 480, 0);
+            divGrad.addColorStop(0, '#667eea');
+            divGrad.addColorStop(1, '#764ba2');
+            ctx.fillStyle = divGrad;
+            ctx.fillRect(100, 270, 380, 4);
+
+            // Contact icons with colors
+            let contactY = 320;
+            ctx.font = '500 20px "Plus Jakarta Sans", sans-serif';
+
+            if (email) {
+                ctx.fillStyle = '#667eea';
+                ctx.fillText('✉', 100, contactY);
+                ctx.fillStyle = '#374151';
+                ctx.fillText(email, 135, contactY);
+                contactY += 40;
+            }
+            if (phone) {
+                ctx.fillStyle = '#764ba2';
+                ctx.fillText('📱', 100, contactY);
+                ctx.fillStyle = '#374151';
+                ctx.fillText(phone, 135, contactY);
+            }
+
+            // QR Code
+            await drawQRWithFrame(ctx, w - 280, h/2 - 100, 180, '#667eea', '#ffffff');
+
+            // Scan text
+            ctx.fillStyle = '#667eea';
+            ctx.font = 'bold 16px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('SCAN TO CONNECT', w - 190, h/2 + 110);
+            ctx.textAlign = 'left';
+
+            // Branding
+            ctx.fillStyle = '#764ba2';
+            ctx.font = '500 14px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('✨ Scan2Reach', w - 100, h - 75);
+            ctx.textAlign = 'left';
+        }
+
+        // ========== TEMPLATE: CLASSIC WHITE ==========
+        async function drawClassicTemplate(ctx, canvas) {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Clean white background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+
+            // Subtle border
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(20, 20, w - 40, h - 40);
+
+            // Navy accent bar at top
+            ctx.fillStyle = '#1e3a5f';
+            ctx.fillRect(0, 0, w, 8);
+
+            // Profile info
+            const name = profileData.name || 'Your Name';
+            const designation = profileData.designation || profileData.title || 'Professional';
+            const company = profileData.company || profileData.organization || '';
+            const email = profileData.email || '';
+            const phone = profileData.phone || profileData.mobile || '';
+
+            // Name
+            ctx.fillStyle = '#1e3a5f';
+            ctx.font = 'bold 46px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(name, 70, 130);
+
+            // Designation
+            ctx.fillStyle = '#374151';
+            ctx.font = '600 24px "Plus Jakarta Sans", sans-serif';
+            ctx.fillText(designation, 70, 175);
+
+            // Company
+            if (company) {
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '500 20px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(company, 70, 215);
+            }
+
+            // Classic underline
+            ctx.strokeStyle = '#1e3a5f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(70, 250);
+            ctx.lineTo(250, 250);
+            ctx.stroke();
+
+            // Contact details
+            let contactY = 300;
+            ctx.font = '500 19px "Plus Jakarta Sans", sans-serif';
+            ctx.fillStyle = '#374151';
+
+            if (email) {
+                ctx.fillText('Email: ' + email, 70, contactY);
+                contactY += 38;
+            }
+            if (phone) {
+                ctx.fillText('Phone: ' + phone, 70, contactY);
+            }
+
+            // QR Code with navy frame
+            await drawQRWithFrame(ctx, w - 260, h/2 - 95, 180, '#1e3a5f', '#ffffff');
+
+            // Scan text
+            ctx.fillStyle = '#1e3a5f';
+            ctx.font = 'bold 15px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('SCAN FOR DETAILS', w - 170, h/2 + 110);
+            ctx.textAlign = 'left';
+
+            // Navy bar at bottom
+            ctx.fillStyle = '#1e3a5f';
+            ctx.fillRect(0, h - 8, w, 8);
+
+            // Branding
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '500 13px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('Powered by Scan2Reach', w - 70, h - 30);
+            ctx.textAlign = 'left';
+        }
+
+        // ========== TEMPLATE: CREATIVE COLORFUL ==========
+        async function drawCreativeTemplate(ctx, canvas) {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Multi-color gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+            bgGrad.addColorStop(0, '#ff6b6b');
+            bgGrad.addColorStop(0.25, '#feca57');
+            bgGrad.addColorStop(0.5, '#48dbfb');
+            bgGrad.addColorStop(0.75, '#ff9ff3');
+            bgGrad.addColorStop(1, '#54a0ff');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Geometric shapes
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            
+            // Triangle
+            ctx.beginPath();
+            ctx.moveTo(w - 200, 0);
+            ctx.lineTo(w, 0);
+            ctx.lineTo(w, 200);
+            ctx.closePath();
+            ctx.fill();
+
+            // Circle
+            ctx.beginPath();
+            ctx.arc(100, h - 80, 120, 0, Math.PI * 2);
+            ctx.fill();
+
+            // White card with rounded corners
+            roundRect(ctx, 60, 60, w - 120, h - 120, 25);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.97)';
+            ctx.fill();
+
+            // Colorful accent strip
+            const stripGrad = ctx.createLinearGradient(80, 0, 500, 0);
+            stripGrad.addColorStop(0, '#ff6b6b');
+            stripGrad.addColorStop(0.5, '#48dbfb');
+            stripGrad.addColorStop(1, '#ff9ff3');
+            ctx.fillStyle = stripGrad;
+            ctx.fillRect(80, 80, 400, 6);
+
+            // Profile info
+            const name = profileData.name || 'Your Name';
+            const designation = profileData.designation || profileData.title || 'Professional';
+            const company = profileData.company || profileData.organization || '';
+            const email = profileData.email || '';
+            const phone = profileData.phone || profileData.mobile || '';
+
+            // Name
+            ctx.fillStyle = '#2d3436';
+            ctx.font = 'bold 44px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(name, 100, 160);
+
+            // Designation with color
+            ctx.fillStyle = '#ff6b6b';
+            ctx.font = '700 24px "Plus Jakarta Sans", sans-serif';
+            ctx.fillText(designation, 100, 205);
+
+            // Company
+            if (company) {
+                ctx.fillStyle = '#636e72';
+                ctx.font = '500 20px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(company, 100, 245);
+            }
+
+            // Contact with colored icons
+            let contactY = 310;
+            ctx.font = '500 19px "Plus Jakarta Sans", sans-serif';
+
+            if (email) {
+                ctx.fillStyle = '#48dbfb';
+                ctx.fillText('✉', 100, contactY);
+                ctx.fillStyle = '#2d3436';
+                ctx.fillText(email, 130, contactY);
+                contactY += 38;
+            }
+            if (phone) {
+                ctx.fillStyle = '#ff9ff3';
+                ctx.fillText('📱', 100, contactY);
+                ctx.fillStyle = '#2d3436';
+                ctx.fillText(phone, 130, contactY);
+            }
+
+            // QR Code with colorful frame
+            await drawQRWithFrame(ctx, w - 280, h/2 - 85, 170, '#ff6b6b', '#ffffff', true);
+
+            // Scan text
+            ctx.fillStyle = '#48dbfb';
+            ctx.font = 'bold 16px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('✨ SCAN ME! ✨', w - 195, h/2 + 115);
+            ctx.textAlign = 'left';
+
+            // Branding
+            ctx.fillStyle = '#ff6b6b';
+            ctx.font = 'bold 14px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('🎨 Scan2Reach', w - 100, h - 90);
+            ctx.textAlign = 'left';
+        }
+
+        // ========== TEMPLATE: MINIMAL CLEAN ==========
+        async function drawMinimalTemplate(ctx, canvas) {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Pure white background
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, w, h);
+
+            // Subtle grid pattern
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.03)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < w; i += 40) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, h);
+                ctx.stroke();
+            }
+            for (let i = 0; i < h; i += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(w, i);
+                ctx.stroke();
+            }
+
+            // Profile info
+            const name = profileData.name || 'Your Name';
+            const designation = profileData.designation || profileData.title || 'Professional';
+            const company = profileData.company || profileData.organization || '';
+            const email = profileData.email || '';
+            const phone = profileData.phone || profileData.mobile || '';
+
+            // Minimal accent line
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(70, 100, 80, 4);
+
+            // Name - Bold and clean
+            ctx.fillStyle = '#111111';
+            ctx.font = 'bold 48px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(name, 70, 175);
+
+            // Designation
+            ctx.fillStyle = '#555555';
+            ctx.font = '500 22px "Plus Jakarta Sans", sans-serif';
+            ctx.fillText(designation, 70, 215);
+
+            // Company
+            if (company) {
+                ctx.fillStyle = '#888888';
+                ctx.font = '400 18px "Plus Jakarta Sans", sans-serif';
+                ctx.fillText(company, 70, 250);
+            }
+
+            // Contact - Minimal style
+            let contactY = 320;
+            ctx.font = '400 17px "Plus Jakarta Sans", sans-serif';
+            ctx.fillStyle = '#333333';
+
+            if (email) {
+                ctx.fillText(email, 70, contactY);
+                contactY += 32;
+            }
+            if (phone) {
+                ctx.fillText(phone, 70, contactY);
+            }
+
+            // QR Code - Simple black frame
+            ctx.fillStyle = '#111111';
+            ctx.fillRect(w - 260, h/2 - 105, 190, 190);
+            
+            // White inner for QR
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(w - 255, h/2 - 100, 180, 180);
+
+            // Draw QR
+            if (qrDataUrl) {
+                const qrImg = new Image();
+                qrImg.src = qrDataUrl;
+                await new Promise((resolve) => {
+                    qrImg.onload = () => {
+                        ctx.drawImage(qrImg, w - 245, h/2 - 90, 160, 160);
+                        resolve();
+                    };
+                });
+            }
+
+            // Scan text
+            ctx.fillStyle = '#111111';
+            ctx.font = '500 14px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('SCAN', w - 165, h/2 + 115);
+            ctx.textAlign = 'left';
+
+            // Minimal branding
+            ctx.fillStyle = '#cccccc';
+            ctx.font = '400 12px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('scan2reach', w - 70, h - 50);
+            ctx.textAlign = 'left';
+        }
+
+        // ========== HELPER FUNCTIONS ==========
+        function roundRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        function drawCornerAccent(ctx, x, y, size, color, flipX = false, flipY = false) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            
+            const dx = flipX ? -1 : 1;
+            const dy = flipY ? -1 : 1;
+            
+            ctx.beginPath();
+            ctx.moveTo(x + (size * dx * 0.6), y);
+            ctx.lineTo(x, y);
+            ctx.lineTo(x, y + (size * dy * 0.6));
+            ctx.stroke();
+        }
+
+        async function drawQRWithFrame(ctx, x, y, size, frameColor, bgColor, rainbow = false) {
+            // Frame
+            if (rainbow) {
+                const frameGrad = ctx.createLinearGradient(x, y, x + size, y + size);
+                frameGrad.addColorStop(0, '#ff6b6b');
+                frameGrad.addColorStop(0.5, '#48dbfb');
+                frameGrad.addColorStop(1, '#ff9ff3');
+                ctx.fillStyle = frameGrad;
+            } else {
+                ctx.fillStyle = frameColor;
+            }
+            roundRect(ctx, x - 10, y - 10, size + 20, size + 20, 15);
+            ctx.fill();
+
+            // White background for QR
+            ctx.fillStyle = bgColor;
+            roundRect(ctx, x, y, size, size, 10);
+            ctx.fill();
+
+            // Draw QR image
+            if (qrDataUrl) {
+                const qrImg = new Image();
+                qrImg.src = qrDataUrl;
+                await new Promise((resolve) => {
+                    qrImg.onload = () => {
+                        const padding = 15;
+                        ctx.drawImage(qrImg, x + padding, y + padding, size - padding * 2, size - padding * 2);
+                        resolve();
+                    };
+                });
+            }
+        }
+
+        // ========== EVENT LISTENERS ==========
+        function setupEventListeners() {
+            // Template selection
+            document.querySelectorAll('.template-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedTemplate = btn.dataset.template;
+                    await drawCard();
+                });
+            });
+
+            // Download PNG
+            document.getElementById('downloadPNG').addEventListener('click', () => {
+                const canvas = document.getElementById('qr-card-canvas');
+                const link = document.createElement('a');
+                link.download = `${profileData.name || 'card'}-scan2reach.png`;
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
+                
+                showToast('✅ PNG downloaded successfully!');
+            });
+
+            // Download PDF
+            document.getElementById('downloadPDF').addEventListener('click', async () => {
+                const { jsPDF } = window.jspdf;
+                const canvas = document.getElementById('qr-card-canvas');
+                
+                // Create PDF with card dimensions (in mm, business card size)
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: [88.9, 50.8] // Standard business card: 3.5" x 2"
+                });
+                
+                const imgData = canvas.toDataURL('image/png', 1.0);
+                pdf.addImage(imgData, 'PNG', 0, 0, 88.9, 50.8);
+                pdf.save(`${profileData.name || 'card'}-scan2reach.pdf`);
+                
+                showToast('✅ PDF downloaded successfully!');
+            });
+
+            // Copy Link
+            document.getElementById('copyLink').addEventListener('click', async () => {
+                const profileUrl = `${window.location.origin}/profile/${profileId}`;
+                try {
+                    await navigator.clipboard.writeText(profileUrl);
+                    showToast('✅ Profile link copied to clipboard!');
+                } catch (err) {
+                    // Fallback
+                    const input = document.createElement('input');
+                    input.value = profileUrl;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                    showToast('✅ Profile link copied!');
+                }
+            });
+
+            // Back to profiles
+            document.getElementById('backToProfiles').addEventListener('click', () => {
+                window.location.href = '/my-profiles.html';
+            });
+        }
+
+        // ========== TOAST NOTIFICATION ==========
+        function showToast(message) {
+            // Remove existing toast
+            const existingToast = document.querySelector('.toast-notification');
+            if (existingToast) existingToast.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            toast.innerHTML = message;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 12px;
+                font-weight: 600;
+                font-size: 1rem;
+                z-index: 9999;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+                animation: slideUp 0.3s ease;
+            `;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Add animation styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+                to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

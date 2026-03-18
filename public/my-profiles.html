@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profiles - Scan2Reach</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --success-dark: #059669;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+        
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: float 8s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(5deg); }
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 1rem 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.35rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn-header {
+            padding: 0.55rem 1.1rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.3s;
+            font-size: 0.85rem;
+        }
+
+        .btn-back {
+            background: var(--gray-100);
+            color: var(--gray-700);
+        }
+
+        .btn-back:hover {
+            background: var(--gray-200);
+        }
+
+        .btn-new {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-new:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Page Header */
+        .page-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 0.4rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .page-subtitle {
+            color: rgba(255,255,255,0.9);
+            font-size: 1rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 1.25rem;
+            border-radius: 14px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--stat-color, var(--primary));
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .stat-icon {
+            font-size: 1.75rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--gray-900);
+            margin-bottom: 0.2rem;
+        }
+
+        .stat-label {
+            color: var(--gray-500);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        /* Filter Tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 0.65rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: 0.65rem 1.25rem;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 0.85rem;
+        }
+
+        .filter-tab:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        .filter-tab.active {
+            background: white;
+            color: var(--primary);
+            border-color: white;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.3);
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 3.5rem 2rem;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.25rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading p {
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3.5rem 2rem;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 18px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .empty-icon {
+            font-size: 4.5rem;
+            margin-bottom: 0.85rem;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .empty-state h3 {
+            color: var(--gray-900);
+            font-size: 1.35rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .empty-state p {
+            color: var(--gray-500);
+            margin-bottom: 1.25rem;
+            font-size: 0.95rem;
+        }
+
+        .btn-create {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.85rem 1.75rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 700;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            font-size: 0.95rem;
+        }
+
+        .btn-create:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Profiles Grid */
+        .profiles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .profile-card {
+            background: white;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .profile-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+        }
+
+        .profile-header {
+            padding: 1.75rem 1.35rem;
+            color: white;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        }
+
+        .profile-icon {
+            font-size: 2.75rem;
+            margin-bottom: 0.65rem;
+            position: relative;
+            z-index: 1;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+        }
+
+        .profile-type {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            opacity: 0.9;
+            margin-bottom: 0.4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin-bottom: 0.2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-id {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: 0.85rem;
+            margin-top: 0.85rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.4rem 0.75rem;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .profile-stat-badge svg {
+            width: 13px;
+            height: 13px;
+        }
+
+        .profile-body {
+            padding: 1.35rem;
+        }
+
+        .profile-info {
+            margin-bottom: 1.25rem;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: var(--gray-500);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .info-value {
+            color: var(--gray-900);
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Status badges */
+        .status-badge {
+            padding: 0.35rem 0.75rem;
+            border-radius: 18px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .status-active {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+        }
+
+        .status-pending {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+        }
+
+        .status-expired {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
+        }
+
+        .status-suspended {
+            background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+            color: #374151;
+        }
+
+        /* Profile Actions */
+        .profile-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.35rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            text-decoration: none;
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        .btn-design {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-design:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-edit {
+            background: linear-gradient(135deg, var(--success), var(--success-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-edit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-700);
+            border: 2px solid var(--gray-200);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-200);
+            border-color: var(--gray-300);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.65rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.25rem;
+            }
+
+            .profiles-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .page-title {
+                font-size: 1.65rem;
+            }
+
+            .header-actions {
+                gap: 0.5rem;
+            }
+
+            .btn-header {
+                padding: 0.5rem 0.9rem;
+                font-size: 0.8rem;
+            }
+
+            .filter-tabs {
+                justify-content: center;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span>📋</span>
+                Scan2Reach
+            </div>
+            <div class="header-actions">
+                <a href="/dashboard.html" class="btn-header btn-back">
+                    ← Dashboard
+                </a>
+                <a href="/pricing.html" class="btn-header btn-new">
+                    👑 Upgrade Plan
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">
+                <span>📱</span>
+                My Profiles
+            </h1>
+            <p class="page-subtitle">Manage all your QR profiles</p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card" style="--stat-color: #3b82f6;">
+                <div class="stat-icon">📊</div>
+                <div class="stat-value" id="totalProfiles">0</div>
+                <div class="stat-label">Total Profiles</div>
+            </div>
+            <div class="stat-card" style="--stat-color: #10b981;">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value" id="activeProfiles">0</div>
+                <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-card" style="--stat-color: #8b5cf6;">
+                <div class="stat-icon">👁️</div>
+                <div class="stat-value" id="totalScans">0</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+            <div class="stat-card" style="--stat-color: #f59e0b;">
+                <div class="stat-icon">📞</div>
+                <div class="stat-value" id="totalCalls">0</div>
+                <div class="stat-label">Total Calls</div>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+            <button class="filter-tab active" data-filter="all">All</button>
+            <button class="filter-tab" data-filter="active">✅ Active</button>
+            <button class="filter-tab" data-filter="pending">⏰ Pending</button>
+            <button class="filter-tab" data-filter="vehicle">🚗 Vehicles</button>
+            <button class="filter-tab" data-filter="card">💳 Cards</button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading">
+            <div class="spinner"></div>
+            <p>Loading profiles...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state hidden">
+            <div class="empty-icon">📭</div>
+            <h3>No Profiles Yet</h3>
+            <p>Create your first QR profile to get started</p>
+            <a href="/pricing.html" class="btn-create">
+                <span>👑</span>
+                View Plans
+            </a>
+        </div>
+
+        <!-- Profiles Grid -->
+        <div id="profilesGrid" class="profiles-grid hidden"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, query, where, getDocs, orderBy, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const productConfig = {
+            'vehicle': {
+                name: 'Vehicle QR',
+                icon: '🚗',
+                color: '#3b82f6',
+                colorDark: '#2563eb',
+                canEdit: false,
+                designerUrl: '/vehicle-qr-designer.html'
+            },
+            'vehicle-pro': {
+                name: 'Vehicle Pro',
+                icon: '🚙',
+                color: '#8b5cf6',
+                colorDark: '#7c3aed',
+                canEdit: true,
+                designerUrl: '/vehicle-qr-designer.html'
+            },
+            'card': {
+                name: 'Digital Card',
+                icon: '💳',
+                color: '#10b981',
+                colorDark: '#059669',
+                canEdit: true,
+                designerUrl: '/card-qr-designer.html'
+            }
+        };
+
+        const loadingState = document.getElementById('loadingState');
+        const emptyState = document.getElementById('emptyState');
+        const profilesGrid = document.getElementById('profilesGrid');
+
+        let allProfiles = [];
+        let currentFilter = 'all';
+        let currentUser = null;
+
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentFilter = tab.dataset.filter;
+                renderProfiles();
+            });
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                loadProfiles(user.uid);
+            } else {
+                window.location.href = '/login.html';
+            }
+        });
+
+        async function loadProfiles(userId) {
+            try {
+                const q = query(
+                    collection(db, 'profiles'),
+                    where('userId', '==', userId),
+                    orderBy('createdAt', 'desc')
+                );
+
+                const snapshot = await getDocs(q);
+                
+                allProfiles = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                updateStats();
+                renderProfiles();
+
+            } catch (error) {
+                console.error('Error:', error);
+                loadingState.innerHTML = `
+                    <div style="color: white; background: rgba(239, 68, 68, 0.2); padding: 2rem; border-radius: 14px; backdrop-filter: blur(10px);">
+                        <h3 style="margin-bottom: 0.5rem;">⚠️ Error</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function updateStats() {
+            const total = allProfiles.length;
+            const active = allProfiles.filter(p => 
+                p.subscriptionStatus === 'active' || p.status === 'paid'
+            ).length;
+            const totalScans = allProfiles.reduce((sum, p) => sum + (p.scanCount || 0), 0);
+            const totalCalls = allProfiles.reduce((sum, p) => sum + (p.callCount || 0), 0);
+
+            document.getElementById('totalProfiles').textContent = total;
+            document.getElementById('activeProfiles').textContent = active;
+            document.getElementById('totalScans').textContent = totalScans.toLocaleString();
+            document.getElementById('totalCalls').textContent = totalCalls.toLocaleString();
+        }
+
+        function renderProfiles() {
+            loadingState.classList.add('hidden');
+
+            let filtered = [...allProfiles];
+
+            if (currentFilter === 'active') {
+                filtered = allProfiles.filter(p => 
+                    p.subscriptionStatus === 'active' || p.status === 'paid'
+                );
+            } else if (currentFilter === 'pending') {
+                filtered = allProfiles.filter(p => 
+                    p.subscriptionStatus === 'pending' || p.status === 'pending_payment'
+                );
+            } else if (currentFilter === 'vehicle') {
+                filtered = allProfiles.filter(p => 
+                    p.productType === 'vehicle' || p.productType === 'vehicle-pro'
+                );
+            } else if (currentFilter === 'card') {
+                filtered = allProfiles.filter(p => p.productType === 'card');
+            }
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                profilesGrid.classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            profilesGrid.classList.remove('hidden');
+
+            profilesGrid.innerHTML = filtered.map((profile, index) => 
+                createProfileCard(profile, index)
+            ).join('');
+        }
+
+        function createProfileCard(profile, index) {
+            const config = productConfig[profile.productType] || productConfig.vehicle;
+            
+            const isActive = profile.subscriptionStatus === 'active' || profile.status === 'paid';
+            const isPending = profile.subscriptionStatus === 'pending' || profile.status === 'pending_payment';
+            const isExpired = profile.subscriptionStatus === 'expired';
+            const isSuspended = profile.subscriptionStatus === 'suspended';
+            
+            const scanCount = profile.scanCount || 0;
+            const callCount = profile.callCount || 0;
+            
+            let profileName = 'Profile';
+            if (profile.vehicleNumber) profileName = profile.vehicleNumber;
+            else if (profile.fullName) profileName = profile.fullName;
+
+            let expiryText = 'N/A';
+            if (profile.expiryDate) {
+                const expiry = profile.expiryDate.toDate ? 
+                    profile.expiryDate.toDate() : 
+                    new Date(profile.expiryDate);
+                expiryText = expiry.toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            }
+
+            let statusBadge = '';
+            if (isActive) {
+                statusBadge = '<span class="status-badge status-active">✅ Active</span>';
+            } else if (isPending) {
+                statusBadge = '<span class="status-badge status-pending">⏰ Pending</span>';
+            } else if (isExpired) {
+                statusBadge = '<span class="status-badge status-expired">⚠️ Expired</span>';
+            } else if (isSuspended) {
+                statusBadge = '<span class="status-badge status-suspended">🚫 Suspended</span>';
+            }
+
+            const designerUrl = `${config.designerUrl}?profileId=${profile.id}`;
+            const editUrl = `/edit-profile.html?profileId=${profile.id}`;
+            const viewUrl = `/profile/${profile.id}`;
+            const paymentUrl = `/payment.html?profileId=${profile.id}&type=${profile.productType}&amount=${profile.amount || 199}`;
+
+            const animationDelay = index * 0.1;
+
+            return `
+                <div class="profile-card" style="animation-delay: ${animationDelay}s;">
+                    <div class="profile-header" style="background: linear-gradient(135deg, ${config.color} 0%, ${config.colorDark} 100%);">
+                        <div class="profile-icon">${config.icon}</div>
+                        <div class="profile-type">${config.name}</div>
+                        <div class="profile-name">${profileName}</div>
+                        <div class="profile-id">ID: ${profile.id.substring(0, 8)}...</div>
+                        
+                        ${isActive ? `
+                            <div class="profile-stats">
+                                <div class="profile-stat-badge">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                    ${scanCount.toLocaleString()} scans
+                                </div>
+                                <div class="profile-stat-badge">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                                    </svg>
+                                    ${callCount.toLocaleString()} calls
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="profile-body">
+                        <div class="profile-info">
+                            <div class="info-row">
+                                <span class="info-label">Status</span>
+                                ${statusBadge}
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Created</span>
+                                <span class="info-value">${formatDate(profile.createdAt)}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Valid Until</span>
+                                <span class="info-value">${expiryText}</span>
+                            </div>
+                        </div>
+
+                        <div class="profile-actions">
+                            ${isActive ? `
+                                <a href="${designerUrl}" class="btn btn-design btn-full">
+                                    🎨 Design QR
+                                </a>
+                                ${config.canEdit ? `
+                                    <div class="btn-row">
+                                        <a href="${editUrl}" class="btn btn-edit">
+                                            ✏️ Edit
+                                        </a>
+                                        <a href="${viewUrl}" target="_blank" class="btn btn-secondary">
+                                            👁️ View
+                                        </a>
+                                    </div>
+                                ` : `
+                                    <a href="${viewUrl}" target="_blank" class="btn btn-secondary btn-full">
+                                        👁️ View
+                                    </a>
+                                `}
+                            ` : isPending ? `
+                                <a href="${paymentUrl}" class="btn btn-primary btn-full">
+                                    💳 Pay Now
+                                </a>
+                                <button class="btn btn-danger btn-full" onclick="removeProfile('${profile.id}', '${profileName}')">
+                                    🗑️ Remove
+                                </button>
+                            ` : isExpired ? `
+                                <a href="${paymentUrl}" class="btn btn-primary btn-full">
+                                    🔄 Renew
+                                </a>
+                            ` : `
+                                <button class="btn btn-secondary btn-full" disabled>
+                                    Suspended
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        window.removeProfile = async function(profileId, profileName) {
+            if (!confirm(`Remove "${profileName}"?`)) return;
+
+            try {
+                await deleteDoc(doc(db, 'profiles', profileId));
+                allProfiles = allProfiles.filter(p => p.id !== profileId);
+                updateStats();
+                renderProfiles();
+                showToast('Profile removed', 'success');
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        };
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 0.9rem 1.75rem;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 9999;
+                animation: slideUp 0.3s ease;
+                background: ${type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)'};
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                font-size: 0.9rem;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

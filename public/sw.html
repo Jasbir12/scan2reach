@@ -1,0 +1,90 @@
+const CACHE_NAME = 'scan2reach-v1.0.0';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/dashboard.html',
+  '/profile.html',
+  '/my-profiles.html',
+  '/app-download.html',
+  '/create-profile.html',
+  '/manifest.json',
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
+];
+
+// Install
+self.addEventListener('install', (event) => {
+  console.log('Service Worker installing...');
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('Caching app shell');
+        return cache.addAll(urlsToCache);
+      })
+  );
+  self.skipWaiting();
+});
+
+// Activate
+self.addEventListener('activate', (event) => {
+  console.log('Service Worker activating...');
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+  return self.clients.claim();
+});
+
+// Fetch
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
+      }
+    )
+  );
+});
+
+// Push notification
+self.addEventListener('push', (event) => {
+  console.log('Push notification received:', event);
+  
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || '📞 Scan2Reach';
+  const options = {
+    body: data.body || 'New notification',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-72.png',
+    vibrate: [200, 100, 200, 100, 200],
+    tag: data.tag || 'notification',
+    requireInteraction: true,
+    data: data
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// Notification click
+self.addEventListener('notificationclick', (event) => {
+  console.log('Notification clicked:', event);
+  event.notification.close();
+
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url || '/dashboard.html')
+  );
+});

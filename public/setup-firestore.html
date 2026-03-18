@@ -1,0 +1,347 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Firestore - Scan2Reach</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { color: #333; margin-bottom: 10px; text-align: center; }
+        .subtitle { color: #666; text-align: center; margin-bottom: 30px; }
+        .status { 
+            background: #f5f5f5; 
+            padding: 20px; 
+            border-radius: 12px; 
+            margin-bottom: 20px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .status-item:last-child { border-bottom: none; }
+        .status-item label { color: #666; }
+        .status-item span { color: #333; font-weight: 600; word-break: break-all; }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .btn-primary:hover { transform: scale(1.02); }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { transform: scale(1.02); }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .message.show { display: block; }
+        .message.success { background: #d1fae5; color: #065f46; }
+        .message.error { background: #fee2e2; color: #991b1b; }
+        .message.info { background: #dbeafe; color: #1e40af; }
+        .log {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log p { margin: 5px 0; }
+        .log .error { color: #ef4444; }
+        .log .success { color: #10b981; }
+        .log .info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Setup Firestore</h1>
+        <p class="subtitle">Create clean database structure for Scan2Reach</p>
+
+        <div class="message success" id="successMsg"></div>
+        <div class="message error" id="errorMsg"></div>
+        <div class="message info" id="infoMsg"></div>
+
+        <div class="status" id="authStatus">
+            <div class="status-item">
+                <label>Login Status</label>
+                <span id="loginStatus">Checking...</span>
+            </div>
+            <div class="status-item">
+                <label>Email</label>
+                <span id="userEmail">-</span>
+            </div>
+            <div class="status-item">
+                <label>User UID</label>
+                <span id="userUid">-</span>
+            </div>
+            <div class="status-item">
+                <label>Admin Status</label>
+                <span id="adminStatus">-</span>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="loginBtn" onclick="goToLogin()">
+            🔐 Login First
+        </button>
+
+        <button class="btn btn-success" id="setupBtn" onclick="setupAll()" style="display:none;">
+            🚀 Setup Everything (Admin + Collections)
+        </button>
+
+        <button class="btn btn-secondary" id="adminPanelBtn" onclick="goToAdmin()" style="display:none;">
+            📊 Go to Admin Panel
+        </button>
+
+        <div class="log" id="logBox">
+            <p class="info">📋 Waiting for action...</p>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        function log(message, type = 'info') {
+            const logBox = document.getElementById('logBox');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = message;
+            logBox.appendChild(p);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function showSuccess(msg) {
+            document.getElementById('successMsg').textContent = msg;
+            document.getElementById('successMsg').classList.add('show');
+            document.getElementById('errorMsg').classList.remove('show');
+        }
+
+        function showError(msg) {
+            document.getElementById('errorMsg').textContent = msg;
+            document.getElementById('errorMsg').classList.add('show');
+            document.getElementById('successMsg').classList.remove('show');
+        }
+
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                document.getElementById('loginStatus').textContent = '✅ Logged In';
+                document.getElementById('loginStatus').style.color = '#10b981';
+                document.getElementById('userEmail').textContent = user.email;
+                document.getElementById('userUid').textContent = user.uid;
+                
+                document.getElementById('loginBtn').style.display = 'none';
+                document.getElementById('setupBtn').style.display = 'block';
+                
+                log('✅ User logged in: ' + user.email, 'success');
+                
+                try {
+                    const adminDoc = await db.collection('admins').doc(user.uid).get();
+                    if (adminDoc.exists) {
+                        document.getElementById('adminStatus').textContent = '✅ You are Admin';
+                        document.getElementById('adminStatus').style.color = '#10b981';
+                        document.getElementById('adminPanelBtn').style.display = 'block';
+                        document.getElementById('setupBtn').textContent = '🔄 Re-Setup Everything';
+                        log('✅ User is already admin', 'success');
+                    } else {
+                        document.getElementById('adminStatus').textContent = '❌ Not Admin';
+                        document.getElementById('adminStatus').style.color = '#ef4444';
+                        log('ℹ️ User is not admin yet', 'info');
+                    }
+                } catch (e) {
+                    document.getElementById('adminStatus').textContent = '❓ Unknown';
+                    log('⚠️ Could not check admin status: ' + e.message, 'error');
+                }
+            } else {
+                document.getElementById('loginStatus').textContent = '❌ Not Logged In';
+                document.getElementById('loginStatus').style.color = '#ef4444';
+                document.getElementById('loginBtn').style.display = 'block';
+                document.getElementById('setupBtn').style.display = 'none';
+                log('ℹ️ Please login first', 'info');
+            }
+        });
+
+        function goToLogin() {
+            window.location.href = '/login.html';
+        }
+
+        function goToAdmin() {
+            window.location.href = '/admin.html';
+        }
+
+        async function setupAll() {
+            const user = auth.currentUser;
+            if (!user) {
+                showError('Please login first!');
+                return;
+            }
+
+            const setupBtn = document.getElementById('setupBtn');
+            setupBtn.disabled = true;
+            setupBtn.textContent = '⏳ Setting up...';
+
+            try {
+                log('🚀 Starting setup...', 'info');
+
+                log('📝 Creating admin document...', 'info');
+                await db.collection('admins').doc(user.uid).set({
+                    uid: user.uid,
+                    email: user.email,
+                    name: user.displayName || user.email.split('@')[0],
+                    role: 'super_admin',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                log('✅ Admin document created', 'success');
+
+                log('📝 Creating user document...', 'info');
+                await db.collection('users').doc(user.uid).set({
+                    uid: user.uid,
+                    email: user.email,
+                    name: user.displayName || user.email.split('@')[0],
+                    role: 'admin',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                log('✅ User document created', 'success');
+
+                log('📝 Creating settings...', 'info');
+                await db.collection('settings').doc('general').set({
+                    siteName: 'Scan2Reach',
+                    siteUrl: 'https://scan2reach-new.web.app',
+                    contactEmail: user.email,
+                    currency: 'INR',
+                    timezone: 'Asia/Kolkata',
+                    maintenanceMode: false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                log('✅ Settings created', 'success');
+
+                log('📝 Creating pricing...', 'info');
+                await db.collection('settings').doc('pricing').set({
+                    vehicle: 199,
+                    vehicle_elite: 399,
+                    digital_card: 299,
+                    business: 499,
+                    pet: 249,
+                    currency: 'INR',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: user.email
+                });
+                log('✅ Pricing created', 'success');
+
+                log('📝 Creating plans...', 'info');
+                await db.collection('settings').doc('plans').set({
+                    vehicle: {
+                        name: 'Vehicle QR',
+                        price: 199,
+                        features: ['QR Code', 'Contact Sharing', 'Call Notification', '1 Year Validity'],
+                        popular: true
+                    },
+                    vehicle_elite: {
+                        name: 'Vehicle Elite',
+                        price: 399,
+                        features: ['Premium QR Design', 'Priority Support', 'Analytics', '1 Year Validity'],
+                        popular: false
+                    },
+                    digital_card: {
+                        name: 'Digital Card',
+                        price: 299,
+                        features: ['Business Card QR', 'Contact Sharing', 'Social Links', '1 Year Validity'],
+                        popular: false
+                    },
+                    business: {
+                        name: 'Business',
+                        price: 499,
+                        features: ['Multiple Profiles', 'Team Access', 'Advanced Analytics', '1 Year Validity'],
+                        popular: false
+                    },
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                log('✅ Plans created', 'success');
+
+                log('📝 Creating admin log...', 'info');
+                await db.collection('admin_logs').add({
+                    action: 'setup_completed',
+                    adminId: user.uid,
+                    adminEmail: user.email,
+                    details: 'Initial Firestore setup completed',
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                log('✅ Admin log created', 'success');
+
+                log('🎉 Setup completed successfully!', 'success');
+                showSuccess('✅ Setup completed! You are now an admin.');
+                
+                document.getElementById('adminStatus').textContent = '✅ You are Admin';
+                document.getElementById('adminStatus').style.color = '#10b981';
+                document.getElementById('adminPanelBtn').style.display = 'block';
+                
+                setupBtn.textContent = '✅ Setup Complete!';
+                setupBtn.style.background = '#10b981';
+
+                setTimeout(() => {
+                    window.location.href = '/admin.html';
+                }, 3000);
+
+            } catch (error) {
+                console.error('Setup error:', error);
+                log('❌ Error: ' + error.message, 'error');
+                showError('Error: ' + error.message);
+                
+                setupBtn.disabled = false;
+                setupBtn.textContent = '🚀 Retry Setup';
+            }
+        }
+
+        log('📋 Page loaded. Checking auth status...', 'info');
+    </script>
+</body>
+</html>

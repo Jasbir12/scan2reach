@@ -1,0 +1,18 @@
+{
+  "dependencies": {
+    "firebase": "^12.10.0",
+    "firebase-admin": "^13.7.0",
+    "sharp": "^0.34.5"
+  },
+  "name": "scan2reach-main",
+  "version": "1.0.0",
+  "description": "QR-powered digital profiles for vehicles, businesses, and professionals.",
+  "main": "delete-firestore.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

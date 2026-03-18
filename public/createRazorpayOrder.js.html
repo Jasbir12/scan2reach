@@ -1,0 +1,49 @@
+const functions = require('firebase-functions');
+const Razorpay = require('razorpay');
+
+const razorpay = new Razorpay({
+    key_id: 'rzp_live_SMsuIr8J2bYWgC',
+    key_secret: 'GOJNH9d5DYlSbZjlhewazLbY' // ← Add your secret key
+});
+
+exports.createRazorpayOrder = functions.region('asia-south1').https.onCall(async (data, context) => {
+    // Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be logged in');
+    }
+
+    const { amount, currency = 'INR', profileId, productType } = data;
+
+    // Validation
+    if (!amount || amount < 1) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid amount');
+    }
+
+    try {
+        const options = {
+            amount: amount * 100, // Razorpay expects paise
+            currency: currency,
+            receipt: `receipt_${Date.now()}`,
+            notes: {
+                profileId: profileId,
+                productType: productType,
+                userId: context.auth.uid
+            }
+        };
+
+        const order = await razorpay.orders.create(options);
+        
+        console.log('✅ Razorpay order created:', order.id);
+
+        return {
+            success: true,
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency
+        };
+
+    } catch (error) {
+        console.error('❌ Error creating order:', error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});

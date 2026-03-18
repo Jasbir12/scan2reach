@@ -1,0 +1,51 @@
+@'
+{
+  "project_info": {
+    "project_number": "466815844554",
+    "firebase_url": "https://scan2reach-new-default-rtdb.firebaseio.com",
+    "project_id": "scan2reach-new",
+    "storage_bucket": "scan2reach-new.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:466815844554:android:dc5b42aa3ac27533d8b433",
+        "android_client_info": {
+          "package_name": "com.scan2reachapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "466815844554-vpkprs28luok474vnnidrpbg23nqtuhk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.scan2reachapp",
+            "certificate_hash": "6f88a4e1b191cc1ac86222537910043ccc622d04"
+          }
+        },
+        {
+          "client_id": "466815844554-ddhq9pmgqghjqcetc8ou6er084usubsp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCNYN2_n4KtEcTy48GIIjx93HVfda7xbI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "466815844554-ddhq9pmgqghjqcetc8ou6er084usubsp.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+'@ | Set-Content -Path "android\app\google-services.json" -Encoding UTF8
+Write-Host "✅ google-services.json created" -ForegroundColor Green

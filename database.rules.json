@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "calls": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$callId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "webrtc_calls": {
+      "$callId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "fcmTokens": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

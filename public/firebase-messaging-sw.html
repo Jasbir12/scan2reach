@@ -1,0 +1,309 @@
+/**
+ * Firebase Cloud Messaging Service Worker
+ * 
+ * This runs in the background and handles:
+ * - Push notifications when app is closed
+ * - Background message handling
+ * - Notification clicks
+ * 
+ * Location: public/firebase-messaging-sw.js (MUST be in root of public/)
+ */
+
+// ==================== Import Firebase Scripts ====================
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+
+console.log('🔧 Service Worker: Loading...');
+
+// ==================== Firebase Configuration ====================
+const firebaseConfig = {
+    apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+    authDomain: "scan2reach-new.firebaseapp.com",
+    projectId: "scan2reach-new",
+    storageBucket: "scan2reach-new.firebasestorage.app",
+    messagingSenderId: "466815844554",
+    appId: "1:466815844554:web:caf16651ec18d026d8b433"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
+
+console.log('✅ Service Worker: Firebase initialized');
+
+// ==================== Background Message Handler ====================
+/**
+ * This handles messages when:
+ * - App is in background
+ * - Browser tab is closed
+ * - User is on a different tab
+ */
+messaging.onBackgroundMessage((payload) => {
+    console.log('📩 Background message received:', payload);
+
+    const notificationTitle = payload.notification?.title || '📞 Incoming Call';
+    const notificationOptions = {
+        body: payload.notification?.body || 'Tap to answer',
+        icon: '/assets/icons/icon-192.png',
+        badge: '/assets/icons/icon-72.png',
+        image: payload.notification?.image || null,
+        vibrate: [200, 100, 200, 100, 200, 100, 200],
+        tag: 'incoming-call-' + (payload.data?.callId || Date.now()),
+        requireInteraction: true, // Notification stays until user interacts
+        silent: false,
+        
+        // Action buttons
+        actions: [
+            {
+                action: 'answer',
+                title: '✅ Answer',
+                icon: '/assets/icons/answer-icon.png'
+            },
+            {
+                action: 'reject',
+                title: '❌ Reject',
+                icon: '/assets/icons/reject-icon.png'
+            }
+        ],
+        
+        // Data to pass when notification is clicked
+        data: {
+            callId: payload.data?.callId || '',
+            profileId: payload.data?.profileId || '',
+            vehicleNumber: payload.data?.vehicleNumber || '',
+            timestamp: Date.now(),
+            url: `/receiver.html?callId=${payload.data?.callId}&action=answer`
+        }
+    };
+
+    console.log('🔔 Showing notification:', notificationTitle);
+
+    // Show notification
+    return self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// ==================== Notification Click Handler ====================
+/**
+ * Handles when user clicks on the notification
+ */
+self.addEventListener('notificationclick', (event) => {
+    console.log('👆 Notification clicked:', event);
+
+    // Close the notification
+    event.notification.close();
+
+    const action = event.action;
+    const data = event.notification.data;
+
+    console.log('Action:', action);
+    console.log('Data:', data);
+
+    // Handle different actions
+    if (action === 'answer') {
+        console.log('✅ User chose to answer');
+        
+        // Open receiver page with auto-answer
+        event.waitUntil(
+            clients.openWindow(data.url || `/receiver.html?callId=${data.callId}&action=answer`)
+        );
+
+    } else if (action === 'reject') {
+        console.log('❌ User chose to reject');
+        
+        // Call API to reject the call
+        event.waitUntil(
+            fetch(`https://scan2reach-new.web.app/api/rejectCall`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ callId: data.callId })
+            }).catch(err => console.error('Reject API error:', err))
+        );
+
+    } else {
+        console.log('🔔 User tapped notification (default action)');
+        
+        // Default: Open receiver page
+        event.waitUntil(
+            clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+                // Check if receiver is already open
+                for (let i = 0; i < clientList.length; i++) {
+                    const client = clientList[i];
+                    if (client.url.includes('receiver.html') && 'focus' in client) {
+                        console.log('📱 Focusing existing receiver window');
+                        return client.focus();
+                    }
+                }
+                
+                // Open new window
+                console.log('📱 Opening new receiver window');
+                if (clients.openWindow) {
+                    return clients.openWindow(data.url || '/receiver.html');
+                }
+            })
+        );
+    }
+});
+
+// ==================== Push Event Handler (Alternative) ====================
+/**
+ * This is a fallback push handler
+ * Sometimes browsers use this instead of onBackgroundMessage
+ */
+self.addEventListener('push', (event) => {
+    console.log('📨 Push event received');
+
+    if (!event.data) {
+        console.log('No data in push event');
+        return;
+    }
+
+    try {
+        const data = event.data.json();
+        console.log('Push data:', data);
+
+        // Only show notification if it's not already handled by onBackgroundMessage
+        if (data.notification) {
+            const title = data.notification.title || '📞 Incoming Call';
+            const options = {
+                body: data.notification.body || 'Tap to view',
+                icon: '/assets/icons/icon-192.png',
+                badge: '/assets/icons/icon-72.png',
+                vibrate: [200, 100, 200],
+                data: data.data || {}
+            };
+
+            event.waitUntil(
+                self.registration.showNotification(title, options)
+            );
+        }
+    } catch (error) {
+        console.error('Error handling push:', error);
+    }
+});
+
+// ==================== Service Worker Install ====================
+self.addEventListener('install', (event) => {
+    console.log('🔧 Service Worker: Installing...');
+    
+    // Force immediate activation
+    self.skipWaiting();
+});
+
+// ==================== Service Worker Activate ====================
+self.addEventListener('activate', (event) => {
+    console.log('✅ Service Worker: Activated');
+    
+    // Take control of all pages immediately
+    event.waitUntil(clients.claim());
+});
+
+// ==================== Service Worker Fetch (Cache strategy) ====================
+/**
+ * Optional: Cache static assets for offline support
+ */
+self.addEventListener('fetch', (event) => {
+    // Only cache GET requests
+    if (event.request.method !== 'GET') return;
+
+    // Skip Firebase API calls
+    if (event.request.url.includes('firestore.googleapis.com') || 
+        event.request.url.includes('fcm.googleapis.com')) {
+        return;
+    }
+
+    // Network-first strategy for HTML files
+    if (event.request.url.endsWith('.html')) {
+        event.respondWith(
+            fetch(event.request)
+                .catch(() => caches.match(event.request))
+        );
+    }
+});
+
+// ==================== Message Handler (from main app) ====================
+/**
+ * Receive messages from the main application
+ */
+self.addEventListener('message', (event) => {
+    console.log('💬 Message from app:', event.data);
+
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+
+    // You can add custom message handlers here
+    if (event.data && event.data.type === 'UPDATE_BADGE') {
+        // Update notification badge count
+        if ('setAppBadge' in navigator) {
+            navigator.setAppBadge(event.data.count);
+        }
+    }
+});
+
+// ==================== Notification Close Handler ====================
+self.addEventListener('notificationclose', (event) => {
+    console.log('🔕 Notification closed:', event.notification.tag);
+    
+    // Track notification dismissal
+    const data = event.notification.data;
+    
+    // Optional: Log dismissal to analytics
+    if (data.callId) {
+        console.log('User dismissed call notification:', data.callId);
+        
+        // You could send this to analytics
+        fetch('https://scan2reach-new.web.app/api/logNotificationDismissal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                callId: data.callId,
+                dismissedAt: Date.now()
+            })
+        }).catch(() => {}); // Silent fail
+    }
+});
+
+// ==================== Error Handler ====================
+self.addEventListener('error', (event) => {
+    console.error('❌ Service Worker Error:', event.error);
+});
+
+self.addEventListener('unhandledrejection', (event) => {
+    console.error('❌ Service Worker Unhandled Rejection:', event.reason);
+});
+
+// ==================== Periodic Background Sync (Advanced) ====================
+/**
+ * Optional: Check for missed calls periodically
+ * Requires periodic-background-sync permission
+ */
+self.addEventListener('periodicsync', (event) => {
+    if (event.tag === 'check-missed-calls') {
+        console.log('🔄 Periodic sync: Checking for missed calls');
+        
+        event.waitUntil(checkMissedCalls());
+    }
+});
+
+async function checkMissedCalls() {
+    try {
+        // Implementation for checking missed calls
+        console.log('Checking missed calls...');
+        
+        // This would query Firestore for any calls you missed
+        // and show a summary notification
+        
+    } catch (error) {
+        console.error('Error checking missed calls:', error);
+    }
+}
+
+// ==================== Debug Info ====================
+console.log('✅ Service Worker: Fully loaded and ready');
+console.log('📍 Service Worker Scope:', self.registration.scope);
+console.log('🔔 Push Manager available:', 'pushManager' in self.registration);
+console.log('🔔 Notifications available:', 'Notification' in self);
+
+// Log service worker version (helpful for debugging)
+const SW_VERSION = '1.0.0';
+console.log('📌 Service Worker Version:', SW_VERSION);

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Firestore Structure Viewer</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:#0a0a1a;color:#e8e8f0;padding:20px}
+h1{text-align:center;margin-bottom:20px;color:#6C63FF}
+.status{text-align:center;padding:20px;font-size:18px;color:#8888aa}
+.spinner{width:40px;height:40px;border:3px solid #2a2a4a;border-top-color:#6C63FF;border-radius:50%;animation:spin .8s linear infinite;margin:20px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+#output{background:#16213e;border:1px solid #2a2a4a;border-radius:12px;padding:20px;white-space:pre-wrap;font-family:'Consolas',monospace;font-size:13px;max-height:70vh;overflow-y:auto;display:none;line-height:1.6}
+.btn{padding:14px 28px;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;margin:10px;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:#6C63FF;color:#fff}
+.btn-primary:hover{background:#5a52d5}
+.btn-green{background:#00c853;color:#fff}
+.btn-green:hover{background:#00a844}
+.buttons{text-align:center;margin:20px 0}
+.collection-name{color:#6C63FF;font-weight:bold;font-size:16px}
+.doc-id{color:#00e5ff}
+.field-key{color:#ff9100}
+.field-val{color:#e8e8f0}
+.count{color:#00c853}
+.error{color:#ff1744}
+.step{color:#8888aa;font-style:italic}
+.summary{background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;padding:20px;margin:20px 0;display:none}
+.summary h2{color:#6C63FF;margin-bottom:10px}
+.summary table{width:100%;border-collapse:collapse}
+.summary th,.summary td{padding:8px 12px;text-align:left;border-bottom:1px solid #2a2a4a}
+.summary th{color:#8888aa;font-size:12px;text-transform:uppercase}
+.summary td{font-size:14px}
+#jsonOutput{display:none;background:#111;border:1px solid #2a2a4a;border-radius:12px;padding:20px;margin-top:20px;white-space:pre-wrap;font-family:'Consolas',monospace;font-size:12px;max-height:50vh;overflow-y:auto}
+</style>
+</head>
+<body>
+
+<h1>🔍 Firestore Structure — scan2reach-new</h1>
+
+<div id="loginSection">
+    <div class="status">Sign in with your admin Google account to view Firestore data</div>
+    <div class="buttons">
+        <button class="btn btn-primary" onclick="doLogin()">🔐 Sign in with Google</button>
+    </div>
+</div>
+
+<div id="loadingSection" style="display:none">
+    <div class="spinner"></div>
+    <div class="status" id="statusText">Scanning Firestore collections...</div>
+</div>
+
+<div class="summary" id="summaryTable">
+    <h2>📊 Summary</h2>
+    <table>
+        <thead><tr><th>Collection</th><th>Documents</th><th>Fields</th></tr></thead>
+        <tbody id="summaryBody"></tbody>
+    </table>
+</div>
+
+<div class="buttons" id="actionButtons" style="display:none">
+    <button class="btn btn-green" onclick="copyJSON()">📋 Copy JSON (Paste to Claude)</button>
+    <button class="btn btn-primary" onclick="copyFormatted()">📄 Copy Formatted</button>
+    <button class="btn btn-primary" onclick="downloadJSON()">💾 Download JSON</button>
+</div>
+
+<pre id="output"></pre>
+<pre id="jsonOutput"></pre>
+
+<script>
+firebase.initializeApp({
+    apiKey:"AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+    authDomain:"scan2reach-new.firebaseapp.com",
+    projectId:"scan2reach-new",
+    storageBucket:"scan2reach-new.firebasestorage.app",
+    messagingSenderId:"466815844554",
+    appId:"1:466815844554:web:caf16651ec18d026d8b433"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+let fullResult = {};
+
+function doLogin() {
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+        .then(() => scanFirestore())
+        .catch(e => alert('Login failed: ' + e.message));
+}
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById('loginSection').style.display = 'none';
+        scanFirestore();
+    }
+});
+
+async function scanFirestore() {
+    document.getElementById('loadingSection').style.display = 'block';
+    document.getElementById('output').style.display = 'none';
+
+    const collections = [
+        'users', 'profiles', 'products', 'qr_codes',
+        'admins', 'admin_logs', 'settings', 'orders',
+        'payments', 'subscriptions', 'notifications',
+        'scans', 'calls', 'contacts', 'feedback',
+        'analytics', 'activity_logs', 'plans',
+        'categories', 'coupons', 'reviews', 'templates',
+        'messages', 'support_tickets', 'invoices',
+        'referrals', 'wallets', 'transactions'
+    ];
+
+    const output = document.getElementById('output');
+    const status = document.getElementById('statusText');
+    let formatted = '';
+    let summaryRows = '';
+    let found = 0;
+    let empty = 0;
+
+    fullResult = {};
+
+    for (let i = 0; i < collections.length; i++) {
+        const col = collections[i];
+        status.textContent = `Scanning: ${col} (${i+1}/${collections.length})...`;
+
+        try {
+            const snap = await db.collection(col).limit(5).get();
+
+            if (!snap.empty) {
+                found++;
+                fullResult[col] = { documentCount: snap.size >= 5 ? '5+' : snap.size, sampleDocuments: [] };
+
+                // Get actual count
+                let actualCount = snap.size >= 5 ? '5+' : snap.size;
+                try {
+                    const allSnap = await db.collection(col).get();
+                    actualCount = allSnap.size;
+                    fullResult[col].documentCount = actualCount;
+                } catch(e) {}
+
+                formatted += `\n${'═'.repeat(50)}\n`;
+                formatted += `✅ COLLECTION: ${col} (${actualCount} docs)\n`;
+                formatted += `${'═'.repeat(50)}\n`;
+
+                let allFields = new Set();
+
+                snap.docs.forEach((doc, idx) => {
+                    const data = doc.data();
+                    const cleanData = {};
+
+                    formatted += `\n  📄 Document: ${doc.id}\n`;
+                    formatted += `  ${'─'.repeat(40)}\n`;
+
+                    Object.keys(data).sort().forEach(key => {
+                        allFields.add(key);
+                        const val = data[key];
+                        let displayVal;
+
+                        if (val === null || val === undefined) {
+                            displayVal = 'null';
+                        } else if (val && typeof val.toDate === 'function') {
+                            displayVal = val.toDate().toISOString();
+                            cleanData[key] = displayVal;
+                        } else if (val && val._seconds !== undefined) {
+                            displayVal = new Date(val._seconds * 1000).toISOString();
+                            cleanData[key] = displayVal;
+                        } else if (Array.isArray(val)) {
+                            displayVal = JSON.stringify(val);
+                            cleanData[key] = val;
+                        } else if (typeof val === 'object') {
+                            displayVal = JSON.stringify(val);
+                            cleanData[key] = val;
+                        } else {
+                            displayVal = String(val);
+                            cleanData[key] = val;
+                        }
+
+                        formatted += `     ${key}: ${displayVal}\n`;
+                    });
+
+                    fullResult[col].sampleDocuments.push({ _docId: doc.id, ...cleanData });
+                });
+
+                fullResult[col].fields = Array.from(allFields).sort();
+
+                summaryRows += `<tr>
+                    <td><strong>✅ ${col}</strong></td>
+                    <td>${actualCount}</td>
+                    <td style="font-size:12px;color:#8888aa">${Array.from(allFields).sort().join(', ')}</td>
+                </tr>`;
+
+            } else {
+                empty++;
+                formatted += `\n⚪ ${col} — EMPTY (0 docs)\n`;
+            }
+        } catch (e) {
+            formatted += `\n❌ ${col} — ERROR: ${e.message}\n`;
+            summaryRows += `<tr><td>❌ ${col}</td><td>Error</td><td style="color:#ff1744">${e.message}</td></tr>`;
+        }
+    }
+
+    // Show summary
+    const summaryEl = document.getElementById('summaryTable');
+    document.getElementById('summaryBody').innerHTML = summaryRows;
+    summaryEl.style.display = 'block';
+
+    // Show formatted output
+    output.textContent = formatted;
+    output.style.display = 'block';
+
+    // Prepare JSON
+    document.getElementById('jsonOutput').textContent = JSON.stringify(fullResult, null, 2);
+
+    // Show buttons
+    document.getElementById('actionButtons').style.display = 'block';
+    document.getElementById('loadingSection').style.display = 'none';
+
+    status.textContent = `Done! Found ${found} collections, ${empty} empty.`;
+}
+
+function copyJSON() {
+    const json = JSON.stringify(fullResult, null, 2);
+    navigator.clipboard.writeText(json).then(() => {
+        alert('✅ JSON copied! Go paste it to Claude.');
+    }).catch(() => {
+        document.getElementById('jsonOutput').style.display = 'block';
+        alert('Could not auto-copy. Manually select the JSON at the bottom and copy it.');
+    });
+}
+
+function copyFormatted() {
+    const text = document.getElementById('output').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        alert('✅ Formatted text copied!');
+    });
+}
+
+function downloadJSON() {
+    const json = JSON.stringify(fullResult, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'firestore-structure.json';
+    a.click();
+    alert('✅ Downloaded firestore-structure.json');
+}
+</script>
+</body>
+</html>

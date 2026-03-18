@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Call Analytics — Scan2Reach Admin</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--p:#6C63FF;--pd:#5a52d5;--bg:#0a0a1a;--card:#16213e;--card2:#1a1a2e;--sidebar:#0d0d24;--input:#252545;--text:#e8e8f0;--text2:#8888aa;--ok:#00c853;--no:#ff1744;--warn:#ff9100;--info:#2196f3;--border:#2a2a4a;--sw:260px;--radius:12px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+a{color:var(--p);text-decoration:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--p)}
+
+#maintenanceBanner{display:none;background:linear-gradient(90deg,#ff6d00,#ff9100);color:#000;text-align:center;padding:10px 20px;font-weight:600;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999}
+#maintenanceBanner .close-ban{position:absolute;right:16px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;background:none;border:none;color:#000}
+
+.screen-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:8000}
+.screen-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:48px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.screen-card h1{font-size:28px;margin-bottom:8px;background:linear-gradient(135deg,var(--p),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.screen-card p{color:var(--text2);margin-bottom:28px;font-size:14px}
+.screen-card .logo-icon{font-size:56px;margin-bottom:16px}
+.btn{padding:12px 24px;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:linear-gradient(135deg,var(--p),var(--pd));color:#fff}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,99,255,.4)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--p);color:var(--p)}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px}
+.btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border);background:var(--input);color:var(--text);cursor:pointer;transition:.2s}
+.btn-icon:hover{border-color:var(--p);color:var(--p)}
+.btn-google{background:#fff;color:#333;border:1px solid #ddd;font-size:15px;width:100%;justify-content:center;margin-top:8px;padding:14px}
+.btn-google:hover{background:#f5f5f5;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sw);background:var(--sidebar);border-right:1px solid var(--border);z-index:7000;display:flex;flex-direction:column;transition:transform .3s}
+.sidebar-logo{padding:24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.sidebar-logo span{font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--p),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sidebar-logo .logo-dot{width:36px;height:36px;background:linear-gradient(135deg,var(--p),#a78bfa);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff}
+.sidebar-nav{flex:1;overflow-y:auto;padding:12px 0}
+.nav-section{padding:8px 20px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 20px;margin:2px 8px;border-radius:8px;color:var(--text2);cursor:pointer;transition:all .2s;font-size:13.5px;text-decoration:none}
+.nav-item:hover{background:rgba(108,99,255,.1);color:var(--text)}
+.nav-item.active{background:rgba(108,99,255,.15);color:var(--p);font-weight:600}
+.nav-item .nav-icon{font-size:18px;width:24px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer .admin-info-mini{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sidebar-footer .admin-avatar{width:36px;height:36px;background:linear-gradient(135deg,var(--p),#a78bfa);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff}
+.sidebar-footer .admin-name{font-size:13px;font-weight:600}
+.sidebar-footer .admin-role{font-size:11px;color:var(--text2)}
+
+.main{margin-left:var(--sw);min-height:100vh;transition:margin .3s}
+.header{position:sticky;top:0;z-index:6000;background:rgba(10,10,26,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
+.header-left{display:flex;align-items:center;gap:16px}
+.hamburger{display:none;background:none;border:none;color:var(--text);font-size:24px;cursor:pointer}
+.header-title{font-size:20px;font-weight:700}
+.header-sub{font-size:12px;color:var(--text2)}
+.header-right{display:flex;align-items:center;gap:10px}
+.content{padding:24px 28px}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.3)}
+.stat-card .stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:12px}
+.stat-card .stat-value{font-size:28px;font-weight:700;margin-bottom:4px}
+.stat-card .stat-label{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.stat-card .stat-sub{font-size:11px;color:var(--text2);margin-top:4px}
+.icon-blue{background:rgba(33,150,243,.15);color:var(--info)}
+.icon-green{background:rgba(0,200,83,.15);color:var(--ok)}
+.icon-red{background:rgba(255,23,68,.15);color:var(--no)}
+.icon-orange{background:rgba(255,145,0,.15);color:var(--warn)}
+.icon-purple{background:rgba(108,99,255,.15);color:var(--p)}
+.icon-cyan{background:rgba(0,229,255,.15);color:#00e5ff}
+
+/* Charts */
+.charts-grid{display:grid;grid-template-columns:1fr 1.5fr;gap:20px;margin-bottom:24px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.chart-card h3{font-size:15px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.chart-wrap{position:relative;max-height:300px;display:flex;justify-content:center;align-items:center}
+.chart-wrap-bar{position:relative;height:300px}
+
+/* Table */
+.table-controls{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-box{position:relative;flex:1;min-width:200px}
+.search-box input{width:100%;padding:10px 16px 10px 40px;border:1px solid var(--border);border-radius:8px;background:var(--input);color:var(--text);font-size:13px;outline:none;transition:.3s}
+.search-box input:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(108,99,255,.15)}
+.search-box .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:14px}
+.filter-select{padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--input);color:var(--text);font-size:13px;outline:none;cursor:pointer;min-width:130px}
+.filter-select:focus{border-color:var(--p)}
+.panel-title{font-size:17px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;min-width:700px}
+thead{background:var(--card2)}
+th{padding:12px 16px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;font-size:13px;border-bottom:1px solid rgba(42,42,74,.5);vertical-align:middle}
+tr:hover td{background:rgba(108,99,255,.03)}
+.badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block}
+.badge-ok{background:rgba(0,200,83,.15);color:var(--ok)}
+.badge-no{background:rgba(255,23,68,.15);color:var(--no)}
+.badge-warn{background:rgba(255,145,0,.15);color:var(--warn)}
+.badge-info{background:rgba(33,150,243,.15);color:var(--info)}
+.badge-purple{background:rgba(108,99,255,.15);color:var(--p)}
+.badge-cyan{background:rgba(0,229,255,.15);color:#00e5ff}
+.user-cell{display:flex;align-items:center;gap:10px}
+.user-avatar{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.no-data{text-align:center;padding:48px;color:var(--text2)}
+.no-data .no-icon{font-size:48px;margin-bottom:12px;opacity:.5}
+.pagination{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px}
+.page-btn{width:34px;height:34px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:.2s}
+.page-btn:hover{border-color:var(--p);color:var(--p)}
+.page-btn.active{background:var(--p);color:#fff;border-color:var(--p)}
+.page-btn:disabled{opacity:.3;cursor:not-allowed}
+.table-footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;color:var(--text2)}
+.loading-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Duration display */
+.duration-display{display:flex;align-items:center;gap:6px;font-size:13px}
+.duration-bar{height:6px;border-radius:3px;min-width:8px;max-width:80px;transition:width .3s}
+
+/* Peak hour highlight */
+.peak-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:rgba(255,145,0,.15);color:var(--warn);margin-left:8px}
+
+/* Search Overlay */
+.search-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:8600;padding:60px 20px}
+.search-overlay.show{display:block;animation:fadeUp .2s ease}
+.search-overlay-inner{max-width:640px;margin:0 auto}
+.search-overlay input{width:100%;padding:18px 24px 18px 52px;border:2px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);font-size:18px;outline:none;transition:.3s}
+.search-overlay input:focus{border-color:var(--p)}
+.search-overlay .so-icon{position:absolute;left:20px;top:20px;font-size:20px;color:var(--text2)}
+.search-overlay .so-esc{position:absolute;right:20px;top:18px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text2);background:var(--input)}
+.search-results{margin-top:20px;max-height:60vh;overflow-y:auto}
+.sr-section{margin-bottom:16px}
+.sr-section h4{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px}
+.sr-item{padding:12px 16px;border-radius:8px;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:12px}
+.sr-item:hover{background:rgba(108,99,255,.1)}
+
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:9998;display:flex;flex-direction:column;gap:8px}
+.toast{padding:14px 20px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;min-width:280px;max-width:420px;animation:slideInRight .3s ease;box-shadow:0 8px 25px rgba(0,0,0,.4)}
+.toast-ok{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff}
+.toast-no{background:linear-gradient(135deg,#b71c1c,#c62828);color:#fff}
+.toast-info{background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff}
+@keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+
+.hidden{display:none!important}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:6999}
+.sidebar.open+.sidebar-overlay{display:block}
+
+/* Extra detail cards row */
+.detail-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.detail-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.detail-card h4{font-size:13px;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.detail-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(42,42,74,.3)}
+.detail-item:last-child{border:none}
+.detail-item .di-label{font-size:13px;color:var(--text2)}
+.detail-item .di-value{font-size:14px;font-weight:600}
+.detail-item .di-bar-wrap{width:60px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-left:8px}
+.detail-item .di-bar{height:100%;border-radius:3px}
+
+@media(max-width:1200px){.stats-grid{grid-template-columns:repeat(2,1fr)}.charts-grid{grid-template-columns:1fr}.detail-cards{grid-template-columns:1fr}}
+@media(max-width:768px){
+.sidebar{transform:translateX(-100%)}
+.sidebar.open{transform:translateX(0)}
+.main{margin-left:0}
+.hamburger{display:block}
+.header{padding:12px 16px}
+.content{padding:16px}
+.stats-grid{grid-template-columns:1fr 1fr}
+.table-controls{flex-direction:column;align-items:stretch}
+.search-box{min-width:auto}
+}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="maintenanceBanner">
+  ⚠️ Maintenance Mode is ON — <span id="maintenanceMsg">System under maintenance</span>
+  <button class="close-ban" onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<div id="loginScreen" class="screen-overlay">
+  <div class="screen-card">
+    <div class="logo-icon">🔐</div>
+    <h1>Scan2Reach Admin</h1>
+    <p>Sign in with your admin account</p>
+    <button class="btn btn-google" onclick="doLogin()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<div id="deniedScreen" class="screen-overlay hidden">
+  <div class="screen-card">
+    <div class="logo-icon">🚫</div>
+    <h1>Access Denied</h1>
+    <p>You don't have admin privileges.</p>
+    <button class="btn btn-outline" onclick="firebase.auth().signOut()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ==================== ADMIN PANEL ==================== -->
+<div id="adminPanel" class="hidden">
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-dot">S2</div>
+      <span>Scan2Reach</span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">Main</div>
+      <a class="nav-item" href="admin.html"><span class="nav-icon">📊</span> Dashboard</a>
+      <a class="nav-item" href="admin.html#users"><span class="nav-icon">👥</span> Users</a>
+      <a class="nav-item" href="admin.html#profiles"><span class="nav-icon">📇</span> Profiles</a>
+      <div class="nav-section">Management</div>
+      <a class="nav-item" href="admin-products.html"><span class="nav-icon">📦</span> Products</a>
+      <a class="nav-item" href="admin-products.html#qrcodes"><span class="nav-icon">🔲</span> QR Codes</a>
+      <div class="nav-section">Analytics</div>
+      <a class="nav-item active"><span class="nav-icon">📞</span> Call Analytics</a>
+      <a class="nav-item" href="admin-scans.html"><span class="nav-icon">📈</span> Scan Analytics</a>
+      <div class="nav-section">System</div>
+      <a class="nav-item" href="admin-activity.html"><span class="nav-icon">🔔</span> Activity</a>
+      <a class="nav-item" href="admin-activity.html#logs"><span class="nav-icon">📋</span> Admin Logs</a>
+      <a class="nav-item" href="admin-settings.html"><span class="nav-icon">👑</span> Roles</a>
+      <a class="nav-item" href="admin-settings.html#settings"><span class="nav-icon">⚙️</span> Settings</a>
+      <a class="nav-item" href="admin-export.html"><span class="nav-icon">📥</span> Export</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="admin-info-mini">
+        <div class="admin-avatar" id="sidebarAvatar">A</div>
+        <div>
+          <div class="admin-name" id="sidebarName">Admin</div>
+          <div class="admin-role" id="sidebarRole">admin</div>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="width:100%" onclick="doLogout()">🚪 Sign Out</button>
+    </div>
+  </nav>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <main class="main">
+    <header class="header">
+      <div class="header-left">
+        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <div>
+          <div class="header-title">📞 Call Analytics</div>
+          <div class="header-sub">Monitor call activity across all profiles</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn-icon" title="Search" onclick="openSearch()">🔍</button>
+        <button class="btn-icon" title="Refresh" onclick="refreshAll()">🔄</button>
+        <button class="btn btn-outline btn-sm" onclick="exportCalls()">📥 Export</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- STAT CARDS -->
+      <div class="stats-grid" id="callStats">
+        <div class="stat-card">
+          <div class="stat-icon icon-blue">📞</div>
+          <div class="stat-value" id="statTotalCalls">—</div>
+          <div class="stat-label">Total Calls</div>
+          <div class="stat-sub" id="statCallsSub"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-green">✅</div>
+          <div class="stat-value" id="statAnswered">—</div>
+          <div class="stat-label">Answered</div>
+          <div class="stat-sub" id="statAnsweredPct"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-red">❌</div>
+          <div class="stat-value" id="statMissed">—</div>
+          <div class="stat-label">Missed</div>
+          <div class="stat-sub" id="statMissedPct"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-orange">⏱️</div>
+          <div class="stat-value" id="statAvgDuration">—</div>
+          <div class="stat-label">Avg Duration</div>
+          <div class="stat-sub" id="statLongest"></div>
+        </div>
+      </div>
+
+      <!-- CHARTS -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>📊 Calls by Status</h3>
+          <div class="chart-wrap"><canvas id="chartCallStatus"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>📊 Calls by Hour <span class="peak-tag" id="peakHourTag">🔥 Peak: —</span></h3>
+          <div class="chart-wrap-bar"><canvas id="chartCallHour"></canvas></div>
+        </div>
+      </div>
+
+      <!-- EXTRA DETAILS -->
+      <div class="detail-cards">
+        <div class="detail-card">
+          <h4>📱 Device Breakdown</h4>
+          <div id="deviceBreakdown">
+            <div class="loading-spinner" style="padding:20px"><div class="spinner"></div></div>
+          </div>
+        </div>
+        <div class="detail-card">
+          <h4>🏆 Most Called Profiles</h4>
+          <div id="topProfiles">
+            <div class="loading-spinner" style="padding:20px"><div class="spinner"></div></div>
+          </div>
+        </div>
+        <div class="detail-card">
+          <h4>📅 Call Trends</h4>
+          <div id="callTrends">
+            <div class="loading-spinner" style="padding:20px"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALL HISTORY TABLE -->
+      <div class="panel-title">📋 Call History</div>
+      <div class="table-controls">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="callSearch" placeholder="Search by caller, phone, profile..." oninput="renderCallsTable()">
+        </div>
+        <select class="filter-select" id="callStatusFilter" onchange="renderCallsTable()">
+          <option value="">All Status</option>
+          <option value="answered">Answered</option>
+          <option value="missed">Missed</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <select class="filter-select" id="callSortFilter" onchange="renderCallsTable()">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="longest">Longest Duration</option>
+          <option value="shortest">Shortest Duration</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Caller</th>
+              <th>Profile Called</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th>Duration</th>
+              <th>Device</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="callsTableBody">
+            <tr><td colspan="7"><div class="loading-spinner"><div class="spinner"></div>Loading calls...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <span id="callsShowing">Showing 0 calls</span>
+        <div class="pagination" id="callsPagination"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-overlay-inner">
+    <div style="position:relative">
+      <span class="so-icon">🔍</span>
+      <input type="text" id="globalSearchInput" placeholder="Search calls..." oninput="doGlobalSearch()">
+      <span class="so-esc">ESC</span>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ════════════════════════════════════════════════════
+// FIREBASE
+// ════════════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:"AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+  authDomain:"scan2reach-new.firebaseapp.com",
+  projectId:"scan2reach-new",
+  storageBucket:"scan2reach-new.firebasestorage.app",
+  messagingSenderId:"466815844554",
+  appId:"1:466815844554:web:caf16651ec18d026d8b433"
+});
+const auth=firebase.auth(),db=firebase.firestore();
+
+// ════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════
+const S={user:null,admin:null,calls:[],profiles:[],page:1,perPage:15,charts:{}};
+
+// ════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════
+auth.onAuthStateChanged(async u=>{
+  if(!u){showScreen('login');return}
+  S.user=u;
+  try{
+    const d=await db.collection('admins').doc(u.uid).get();
+    if(d.exists){S.admin={id:d.id,...d.data()};showScreen('admin');initAdmin()}
+    else{showScreen('denied')}
+  }catch(e){showScreen('denied')}
+});
+
+function showScreen(s){
+  document.getElementById('loginScreen').classList.toggle('hidden',s!=='login');
+  document.getElementById('deniedScreen').classList.toggle('hidden',s!=='denied');
+  document.getElementById('adminPanel').classList.toggle('hidden',s!=='admin');
+}
+function doLogin(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>toast(e.message,'no'))}
+function doLogout(){auth.signOut().then(()=>location.reload())}
+
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+async function initAdmin(){
+  document.getElementById('sidebarAvatar').textContent=(S.admin.name||S.admin.email||'A')[0].toUpperCase();
+  document.getElementById('sidebarName').textContent=S.admin.name||S.admin.email;
+  document.getElementById('sidebarRole').textContent=S.admin.role||'admin';
+  checkMaintenance();
+  await loadData();
+  logAdmin('login','admin_panel',null,'Opened Call Analytics page');
+}
+
+async function checkMaintenance(){
+  try{
+    const d=await db.collection('settings').doc('general').get();
+    if(d.exists&&d.data().maintenanceMode){
+      document.getElementById('maintenanceBanner').style.display='block';
+      document.getElementById('maintenanceMsg').textContent=d.data().maintenanceMessage||'System under maintenance';
+    }
+  }catch(e){}
+}
+
+async function loadData(){
+  try{
+    const[cSnap,pSnap]=await Promise.all([
+      db.collection('calls').get(),
+      db.collection('profiles').get()
+    ]);
+    S.calls=cSnap.docs.map(d=>({id:d.id,...d.data()}));
+    S.profiles=pSnap.docs.map(d=>({id:d.id,...d.data()}));
+    renderAll();
+  }catch(e){toast('Load error: '+e.message,'no')}
+}
+
+async function refreshAll(){
+  toast('Refreshing...','info');
+  await loadData();
+  toast('Data refreshed!','ok');
+}
+
+// ════════════════════════════════════════════════════
+// RENDER ALL
+// ════════════════════════════════════════════════════
+function renderAll(){
+  renderStats();
+  renderStatusChart();
+  renderHourChart();
+  renderDeviceBreakdown();
+  renderTopProfiles();
+  renderCallTrends();
+  renderCallsTable();
+}
+
+// ════════════════════════════════════════════════════
+// NORMALIZE STATUS
+// ════════════════════════════════════════════════════
+function normalizeStatus(s){
+  if(!s)return 'missed';
+  s=s.toLowerCase();
+  if(s==='completed'||s==='answered'||s==='connected'||s==='active')return 'answered';
+  if(s==='missed'||s==='no-answer'||s==='unanswered'||s==='no_answer')return 'missed';
+  if(s==='rejected'||s==='declined'||s==='busy'||s==='failed')return 'rejected';
+  return 'missed';
+}
+
+// ════════════════════════════════════════════════════
+// STAT CARDS
+// ════════════════════════════════════════════════════
+function renderStats(){
+  const total=S.calls.length;
+  const answered=S.calls.filter(c=>normalizeStatus(c.status)==='answered').length;
+  const missed=S.calls.filter(c=>normalizeStatus(c.status)==='missed').length;
+  const rejected=S.calls.filter(c=>normalizeStatus(c.status)==='rejected').length;
+
+  // Average duration (only answered calls)
+  const answeredCalls=S.calls.filter(c=>normalizeStatus(c.status)==='answered'&&c.duration>0);
+  const avgDuration=answeredCalls.length?Math.round(answeredCalls.reduce((s,c)=>s+(c.duration||0),0)/answeredCalls.length):0;
+  const maxDuration=Math.max(...S.calls.map(c=>c.duration||0),0);
+
+  // Today's calls
+  const today=new Date();today.setHours(0,0,0,0);
+  const todayCalls=S.calls.filter(c=>{const t=toMs(c.calledAt);return t&&t>=today.getTime()}).length;
+
+  document.getElementById('statTotalCalls').textContent=total;
+  document.getElementById('statCallsSub').textContent=`${todayCalls} today`;
+  document.getElementById('statAnswered').textContent=answered;
+  document.getElementById('statAnsweredPct').textContent=total?`${Math.round(answered/total*100)}% of total`:'—';
+  document.getElementById('statMissed').textContent=missed+rejected;
+  document.getElementById('statMissedPct').textContent=`${missed} missed · ${rejected} rejected`;
+  document.getElementById('statAvgDuration').textContent=formatDuration(avgDuration);
+  document.getElementById('statLongest').textContent=`Longest: ${formatDuration(maxDuration)}`;
+}
+
+// ════════════════════════════════════════════════════
+// CALLS BY STATUS CHART
+// ════════════════════════════════════════════════════
+function renderStatusChart(){
+  const answered=S.calls.filter(c=>normalizeStatus(c.status)==='answered').length;
+  const missed=S.calls.filter(c=>normalizeStatus(c.status)==='missed').length;
+  const rejected=S.calls.filter(c=>normalizeStatus(c.status)==='rejected').length;
+
+  if(S.charts.status)S.charts.status.destroy();
+  S.charts.status=new Chart(document.getElementById('chartCallStatus'),{
+    type:'doughnut',
+    data:{
+      labels:['Answered','Missed','Rejected'],
+      datasets:[{
+        data:[answered,missed,rejected],
+        backgroundColor:['#00c853','#ff1744','#ff9100'],
+        borderWidth:0,
+        hoverOffset:8
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:true,
+      plugins:{
+        legend:{position:'bottom',labels:{color:'#a0a0b0',padding:16,font:{size:12},usePointStyle:true,pointStyle:'circle'}}
+      },
+      cutout:'65%'
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════
+// CALLS BY HOUR CHART
+// ════════════════════════════════════════════════════
+function renderHourChart(){
+  // Count calls per hour
+  const hourCounts=new Array(24).fill(0);
+  S.calls.forEach(c=>{
+    const t=toMs(c.calledAt);
+    if(t){
+      const h=new Date(t).getHours();
+      hourCounts[h]++;
+    }
+  });
+
+  // Find peak hour
+  const peakHour=hourCounts.indexOf(Math.max(...hourCounts));
+  const peakLabel=`${peakHour.toString().padStart(2,'0')}:00`;
+  document.getElementById('peakHourTag').innerHTML=`🔥 Peak: ${peakLabel}`;
+
+  // Colors - highlight peak
+  const barColors=hourCounts.map((_,i)=>i===peakHour?'#ff9100':'rgba(108,99,255,0.7)');
+  const hoverColors=hourCounts.map((_,i)=>i===peakHour?'#ffab40':'rgba(108,99,255,0.9)');
+
+  const labels=Array.from({length:24},(_,i)=>{
+    if(i===0)return '12 AM';
+    if(i===12)return '12 PM';
+    return i<12?`${i} AM`:`${i-12} PM`;
+  });
+
+  if(S.charts.hour)S.charts.hour.destroy();
+  S.charts.hour=new Chart(document.getElementById('chartCallHour'),{
+    type:'bar',
+    data:{
+      labels:labels,
+      datasets:[{
+        label:'Calls',
+        data:hourCounts,
+        backgroundColor:barColors,
+        hoverBackgroundColor:hoverColors,
+        borderRadius:4,
+        borderSkipped:false,
+        barThickness:14
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1a1a2e',
+          titleColor:'#e8e8f0',
+          bodyColor:'#a0a0b0',
+          borderColor:'#2a2a4a',
+          borderWidth:1,
+          cornerRadius:8,
+          padding:12,
+          callbacks:{
+            title:ctx=>ctx[0].label,
+            label:ctx=>`${ctx.raw} calls`
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{color:'#8888aa',font:{size:9},maxRotation:45,minRotation:45}
+        },
+        y:{
+          grid:{color:'rgba(42,42,74,.3)'},
+          ticks:{color:'#8888aa',font:{size:11},stepSize:1},
+          beginAtZero:true
+        }
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════
+// DEVICE BREAKDOWN
+// ════════════════════════════════════════════════════
+function renderDeviceBreakdown(){
+  const devices={};
+  S.calls.forEach(c=>{
+    const d=c.device||'Unknown';
+    devices[d]=(devices[d]||0)+1;
+  });
+
+  const sorted=Object.entries(devices).sort((a,b)=>b[1]-a[1]);
+  const total=S.calls.length||1;
+  const colors=['#6C63FF','#00c853','#ff9100','#2196f3','#e91e63'];
+
+  const el=document.getElementById('deviceBreakdown');
+  if(!sorted.length){el.innerHTML='<div class="no-data" style="padding:20px">No data</div>';return}
+
+  el.innerHTML=sorted.map(([name,count],i)=>{
+    const pct=Math.round(count/total*100);
+    const clr=colors[i%colors.length];
+    return `
+    <div class="detail-item">
+      <span class="di-label">${esc(name)}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="di-value">${count}</span>
+        <div class="di-bar-wrap"><div class="di-bar" style="width:${pct}%;background:${clr}"></div></div>
+        <span style="font-size:11px;color:var(--text2)">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════
+// TOP CALLED PROFILES
+// ════════════════════════════════════════════════════
+function renderTopProfiles(){
+  const profileCounts={};
+  S.calls.forEach(c=>{
+    const pid=c.profileId||'unknown';
+    profileCounts[pid]=(profileCounts[pid]||0)+1;
+  });
+
+  const sorted=Object.entries(profileCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const el=document.getElementById('topProfiles');
+
+  if(!sorted.length){el.innerHTML='<div class="no-data" style="padding:20px">No data</div>';return}
+
+  el.innerHTML=sorted.map(([pid,count],i)=>{
+    const profile=S.profiles.find(p=>p.id===pid);
+    const name=profile?profile.fullName||profile.userEmail||pid.substring(0,12)+'...':pid.substring(0,12)+'...';
+    const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
+    return `
+    <div class="detail-item">
+      <span class="di-label">${medals[i]} ${esc(name)}</span>
+      <span class="di-value" style="color:var(--p)">${count} calls</span>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════
+// CALL TRENDS (Last 7 days)
+// ════════════════════════════════════════════════════
+function renderCallTrends(){
+  const now=new Date();
+  const days=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(now);
+    d.setDate(d.getDate()-i);
+    d.setHours(0,0,0,0);
+    days.push(d);
+  }
+
+  const el=document.getElementById('callTrends');
+  const maxCount=Math.max(...days.map(d=>{
+    const next=new Date(d);next.setDate(next.getDate()+1);
+    return S.calls.filter(c=>{const t=toMs(c.calledAt);return t&&t>=d.getTime()&&t<next.getTime()}).length;
+  }),1);
+
+  el.innerHTML=days.map(d=>{
+    const next=new Date(d);next.setDate(next.getDate()+1);
+    const count=S.calls.filter(c=>{const t=toMs(c.calledAt);return t&&t>=d.getTime()&&t<next.getTime()}).length;
+    const pct=Math.round(count/maxCount*100);
+    const dayName=d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric'});
+    const isToday=d.toDateString()===now.toDateString();
+    return `
+    <div class="detail-item">
+      <span class="di-label" ${isToday?'style="color:var(--p);font-weight:600"':''}>${dayName}${isToday?' (Today)':''}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="di-value">${count}</span>
+        <div class="di-bar-wrap"><div class="di-bar" style="width:${pct}%;background:${isToday?'var(--p)':'var(--ok)'}"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════
+// CALLS TABLE
+// ════════════════════════════════════════════════════
+function renderCallsTable(){
+  const search=(document.getElementById('callSearch').value||'').toLowerCase();
+  const statusF=document.getElementById('callStatusFilter').value;
+  const sortF=document.getElementById('callSortFilter').value;
+
+  let filtered=S.calls.filter(c=>{
+    if(search){
+      const caller=(c.callerId||'').toLowerCase();
+      const phone=(c.phoneNumber||'').toLowerCase();
+      const pid=(c.profileId||'').toLowerCase();
+      const profile=S.profiles.find(p=>p.id===c.profileId);
+      const profName=profile?(profile.fullName||'').toLowerCase():'';
+      if(!caller.includes(search)&&!phone.includes(search)&&!pid.includes(search)&&!profName.includes(search))return false;
+    }
+    if(statusF&&normalizeStatus(c.status)!==statusF)return false;
+    return true;
+  });
+
+  // Sort
+  switch(sortF){
+    case'newest':filtered.sort((a,b)=>(toMs(b.calledAt)||0)-(toMs(a.calledAt)||0));break;
+    case'oldest':filtered.sort((a,b)=>(toMs(a.calledAt)||0)-(toMs(b.calledAt)||0));break;
+    case'longest':filtered.sort((a,b)=>(b.duration||0)-(a.duration||0));break;
+    case'shortest':filtered.sort((a,b)=>(a.duration||0)-(b.duration||0));break;
+  }
+
+  // Pagination
+  const total=filtered.length;
+  const totalPages=Math.ceil(total/S.perPage)||1;
+  if(S.page>totalPages)S.page=totalPages;
+  const start=(S.page-1)*S.perPage;
+  const paged=filtered.slice(start,start+S.perPage);
+
+  document.getElementById('callsShowing').textContent=`Showing ${total?start+1:0}-${Math.min(start+S.perPage,total)} of ${total} calls`;
+
+  const tbody=document.getElementById('callsTableBody');
+
+  if(!paged.length){
+    tbody.innerHTML='<tr><td colspan="7" class="no-data"><div class="no-icon">📞</div>No calls found</td></tr>';
+  }else{
+    const maxDur=Math.max(...S.calls.map(c=>c.duration||0),1);
+    tbody.innerHTML=paged.map(c=>{
+      const callerDisplay=formatCaller(c.callerId);
+      const profile=S.profiles.find(p=>p.id===c.profileId);
+      const profileName=profile?profile.fullName||profile.userEmail||c.profileId.substring(0,10)+'...':(c.profileId||'Unknown').substring(0,10)+'...';
+      const phone=c.phoneNumber||'N/A';
+      const status=normalizeStatus(c.status);
+      const statusBadge=getStatusBadge(status);
+      const duration=c.duration||0;
+      const durPct=Math.round(duration/maxDur*100);
+      const durColor=status==='answered'?'var(--ok)':status==='rejected'?'var(--warn)':'var(--no)';
+      const device=c.device||'Unknown';
+      const date=formatDateTime(toMs(c.calledAt));
+      const avatarColors=['#6C63FF','#00c853','#ff9100','#2196f3','#e91e63','#009688','#ff1744','#aa00ff'];
+      const bgColor=avatarColors[Math.abs(hashStr(c.callerId||'x'))%avatarColors.length];
+
+      return `<tr>
+        <td>
+          <div class="user-cell">
+            <div class="user-avatar" style="background:${bgColor}">📞</div>
+            <div>
+              <div>${esc(callerDisplay)}</div>
+            </div>
+          </div>
+        </td>
+        <td><span style="font-size:12px">${esc(profileName)}</span></td>
+        <td><span style="font-size:12px;color:var(--text2)">${esc(phone)}</span></td>
+        <td>${statusBadge}</td>
+        <td>
+          <div class="duration-display">
+            <span>${formatDuration(duration)}</span>
+            <div class="duration-bar" style="width:${durPct}%;background:${durColor}"></div>
+          </div>
+        </td>
+        <td><span class="badge ${device==='Mobile'?'badge-info':'badge-purple'}">${esc(device)}</span></td>
+        <td><span style="font-size:12px;color:var(--text2)">${date}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  renderPagination('callsPagination',totalPages,S.page,p=>{S.page=p;renderCallsTable()});
+}
+
+// ════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════
+function formatCaller(id){
+  if(!id)return 'Unknown';
+  if(id.startsWith('caller-'))return 'Caller '+id.split('-')[1].substring(0,6);
+  return id.substring(0,14);
+}
+
+function getStatusBadge(status){
+  switch(status){
+    case'answered':return'<span class="badge badge-ok">✅ Answered</span>';
+    case'missed':return'<span class="badge badge-no">❌ Missed</span>';
+    case'rejected':return'<span class="badge badge-warn">⛔ Rejected</span>';
+    default:return`<span class="badge badge-info">${status}</span>`;
+  }
+}
+
+function formatDuration(sec){
+  if(!sec||sec<=0)return '0s';
+  const m=Math.floor(sec/60);
+  const s=sec%60;
+  if(m===0)return `${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function formatDateTime(ms){
+  if(!ms)return 'N/A';
+  const d=new Date(ms);
+  return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+}
+
+function toMs(ts){
+  if(!ts)return null;
+  if(ts.toDate)return ts.toDate().getTime();
+  if(ts.seconds||ts._seconds)return((ts.seconds||ts._seconds)*1000);
+  if(ts instanceof Date)return ts.getTime();
+  if(typeof ts==='string')return new Date(ts).getTime();
+  if(typeof ts==='number')return ts;
+  return null;
+}
+
+function formatDate(ms){
+  if(!ms)return 'N/A';
+  return new Date(ms).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0}return h}
+
+function downloadJSON(data,name){
+  const date=new Date().toISOString().slice(0,10);
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`${name}_${date}.json`;a.click();URL.revokeObjectURL(a.href);
+}
+
+function exportCalls(){
+  const data=S.calls.map(c=>({
+    id:c.id,callerId:c.callerId,profileId:c.profileId,
+    phoneNumber:c.phoneNumber,status:c.status,
+    duration:c.duration,device:c.device,calledAt:c.calledAt
+  }));
+  downloadJSON(data,'calls');
+  logAdmin('export','calls',null,`Exported ${data.length} calls`);
+  toast(`Exported ${data.length} calls`,'ok');
+}
+
+function toast(msg,type='info'){
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div');t.className=`toast toast-${type}`;
+  const icons={ok:'✅',no:'❌',info:'ℹ️'};
+  t.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.animation='slideOut .3s ease forwards';setTimeout(()=>t.remove(),300)},3500);
+}
+
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
+
+function renderPagination(containerId,totalPages,currentPage,onPageChange){
+  const container=document.getElementById(containerId);
+  if(totalPages<=1){container.innerHTML='';return}
+  let html=`<button class="page-btn" ${currentPage===1?'disabled':''}>‹</button>`;
+  let startP=Math.max(1,currentPage-2);
+  let endP=Math.min(totalPages,startP+4);
+  if(endP-startP<4)startP=Math.max(1,endP-4);
+  for(let i=startP;i<=endP;i++){html+=`<button class="page-btn ${i===currentPage?'active':''}">${i}</button>`}
+  html+=`<button class="page-btn" ${currentPage===totalPages?'disabled':''}>›</button>`;
+  container.innerHTML=html;
+  const btns=container.querySelectorAll('.page-btn');
+  btns[0].onclick=()=>{if(currentPage>1)onPageChange(currentPage-1)};
+  btns[btns.length-1].onclick=()=>{if(currentPage<totalPages)onPageChange(currentPage+1)};
+  for(let i=1;i<btns.length-1;i++){const page=startP+i-1;btns[i].onclick=()=>onPageChange(page)}
+}
+
+// ════════════════════════════════════════════════════
+// SEARCH
+// ════════════════════════════════════════════════════
+function openSearch(){
+  document.getElementById('searchOverlay').classList.add('show');
+  document.getElementById('globalSearchInput').value='';
+  document.getElementById('globalSearchInput').focus();
+  document.getElementById('searchResults').innerHTML='';
+}
+function closeSearch(){document.getElementById('searchOverlay').classList.remove('show')}
+
+function doGlobalSearch(){
+  const q=document.getElementById('globalSearchInput').value.toLowerCase().trim();
+  const r=document.getElementById('searchResults');
+  if(!q){r.innerHTML='';return}
+  let html='';
+
+  const cm=S.calls.filter(c=>{
+    const caller=(c.callerId||'').toLowerCase();
+    const phone=(c.phoneNumber||'').toLowerCase();
+    const pid=(c.profileId||'').toLowerCase();
+    return caller.includes(q)||phone.includes(q)||pid.includes(q);
+  }).slice(0,8);
+
+  if(cm.length){
+    html+='<div class="sr-section"><h4>📞 Calls</h4>';
+    cm.forEach(c=>{
+      const status=normalizeStatus(c.status);
+      const emoji=status==='answered'?'✅':status==='rejected'?'⛔':'❌';
+      html+=`<div class="sr-item" onclick="closeSearch();document.getElementById('callSearch').value='${esc(c.phoneNumber||c.callerId||'')}';renderCallsTable()">
+        <span class="sr-icon">${emoji}</span>
+        <div><div class="sr-title">${esc(c.phoneNumber||c.callerId||'Unknown')}</div>
+        <div class="sr-sub">${status} · ${formatDuration(c.duration||0)}</div></div>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  if(!html)html='<div class="no-data" style="padding:32px"><div class="no-icon">🔍</div>No results</div>';
+  r.innerHTML=html;
+}
+
+// ════════════════════════════════════════════════════
+// ADMIN LOG
+// ════════════════════════════════════════════════════
+async function logAdmin(action,collection,targetId,details){
+  try{
+    await db.collection('admin_logs').add({
+      adminId:S.admin.id,adminEmail:S.admin.email,adminName:S.admin.name||S.admin.email,
+      action,targetCollection:collection,targetId:targetId||null,details:details||'',
+      timestamp:firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){console.warn('Log failed:',e)}
+}
+
+// ════════════════════════════════════════════════════
+// KEYBOARD
+// ════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeSearch();
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openSearch()}
+});
+</script>
+</body>
+</html>

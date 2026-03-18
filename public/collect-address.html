@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Address - Scan2Reach</title>
+    <meta name="description" content="Enter your delivery address for free home delivery">
+    <meta name="theme-color" content="#667eea">
+    <meta name="robots" content="noindex, nofollow">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ==================== CSS Variables ==================== */
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --success-dark: #059669;
+            --danger: #ef4444;
+            --danger-dark: #dc2626;
+            --warning: #f59e0b;
+            
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 6px 12px -2px rgba(0, 0, 0, 0.15);
+            --shadow-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.2);
+            --shadow-xl: 0 20px 40px -6px rgba(0, 0, 0, 0.3);
+            
+            --radius-sm: 8px;
+            --radius: 10px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-2xl: 20px;
+            
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ==================== Base Styles ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ==================== Loading Overlay ==================== */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        /* ==================== Container ==================== */
+        .container {
+            background: white;
+            max-width: 650px;
+            width: 100%;
+            border-radius: var(--radius-2xl);
+            padding: 3rem;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
+            position: relative;
+            z-index: 1;
+            animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ==================== Header ==================== */
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .icon {
+            font-size: 4.5rem;
+            margin-bottom: 1rem;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        h1 {
+            color: var(--gray-900);
+            font-size: 2.25rem;
+            font-weight: 900;
+            margin-bottom: 0.75rem;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            color: var(--gray-600);
+            font-size: 1.05rem;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+            color: white;
+            padding: 0.625rem 1.25rem;
+            border-radius: var(--radius-2xl);
+            font-size: 0.9rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        /* ==================== Form Styles ==================== */
+        .form-group {
+            margin-bottom: 1.75rem;
+        }
+
+        label {
+            display: block;
+            color: var(--gray-700);
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 0.625rem;
+        }
+
+        .required {
+            color: var(--danger);
+            font-weight: 900;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 1rem 1.125rem;
+            border: 2px solid var(--gray-200);
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+            font-family: inherit;
+            font-weight: 500;
+            color: var(--gray-900);
+            transition: var(--transition);
+            background: var(--gray-50);
+        }
+
+        input:hover,
+        textarea:hover {
+            border-color: var(--gray-300);
+            background: white;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: var(--gray-400);
+        }
+
+        input.error,
+        textarea.error {
+            border-color: var(--danger);
+        }
+
+        .input-icon {
+            position: relative;
+        }
+
+        .input-icon input {
+            padding-left: 2.75rem;
+        }
+
+        .input-icon::before {
+            content: attr(data-icon);
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.25rem;
+            z-index: 1;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        .field-hint {
+            font-size: 0.85rem;
+            color: var(--gray-500);
+            margin-top: 0.375rem;
+            font-weight: 500;
+        }
+
+        .field-error {
+            font-size: 0.85rem;
+            color: var(--danger);
+            margin-top: 0.375rem;
+            font-weight: 600;
+            display: none;
+        }
+
+        .field-error.show {
+            display: block;
+        }
+
+        /* ==================== Button Styles ==================== */
+        .btn {
+            width: 100%;
+            padding: 1.125rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 1.125rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 1.5rem;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 400px;
+            height: 400px;
+        }
+
+        .btn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* ==================== Message Styles ==================== */
+        .message {
+            padding: 1.125rem 1.25rem;
+            border-radius: var(--radius-lg);
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.975rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.625rem;
+            animation: slideDown 0.4s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.success {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #065f46;
+            border: 2px solid #6ee7b7;
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+            border: 2px solid #fca5a5;
+        }
+
+        .message.warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+            border: 2px solid #fcd34d;
+        }
+
+        /* ==================== Skip Link ==================== */
+        .skip-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid var(--gray-100);
+        }
+
+        .skip-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .skip-link a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        /* ==================== Info Box ==================== */
+        .info-box {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 2px solid #93c5fd;
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-box-title {
+            font-weight: 800;
+            color: #1e40af;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .info-box-text {
+            color: #1e3a8a;
+            font-size: 0.9rem;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+
+        .info-box ul {
+            list-style: none;
+            margin-top: 0.75rem;
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .info-box li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .info-box li::before {
+            content: '✓';
+            color: var(--success);
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+
+        /* ==================== Responsive Design ==================== */
+        @media (max-width: 768px) {
+            body {
+                padding: 1.5rem 1rem;
+            }
+
+            .container {
+                padding: 2.5rem 2rem;
+            }
+
+            h1 {
+                font-size: 1.875rem;
+            }
+
+            .icon {
+                font-size: 3.5rem;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 2rem 1.5rem;
+            }
+
+            h1 {
+                font-size: 1.65rem;
+            }
+
+            .subtitle {
+                font-size: 0.95rem;
+            }
+
+            .btn {
+                font-size: 1rem;
+                padding: 1rem 1.25rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 1rem 0.75rem;
+            }
+
+            .container {
+                padding: 1.75rem 1.25rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .icon {
+                font-size: 3rem;
+            }
+
+            input,
+            textarea {
+                font-size: 0.95rem;
+                padding: 0.875rem 1rem;
+            }
+        }
+
+        /* ==================== Print Styles ==================== */
+        @media print {
+            body {
+                background: white;
+            }
+
+            .skip-link,
+            .info-box {
+                display: none;
+            }
+        }
+
+        /* ==================== Accessibility ==================== */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        button:focus,
+        input:focus,
+        textarea:focus,
+        a:focus {
+            outline: 3px solid rgba(102, 126, 234, 0.5);
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hide" id="loadingOverlay">
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Processing...</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="icon">📦</div>
+            <div class="badge">
+                <span>✨</span>
+                <span>Free Home Delivery</span>
+            </div>
+            <h1>Delivery Address</h1>
+            <p class="subtitle">We'll deliver your premium QR card to this address within 7-10 business days</p>
+        </div>
+
+        <!-- Info Box -->
+        <div class="info-box">
+            <div class="info-box-title">
+                <span>ℹ️</span>
+                <span>What you'll receive:</span>
+            </div>
+            <ul>
+                <li>High-quality printed QR card (85mm × 54mm)</li>
+                <li>Waterproof lamination for durability</li>
+                <li>Free delivery to your doorstep</li>
+                <li>No shipping charges</li>
+            </ul>
+        </div>
+
+        <!-- Message Area -->
+        <div id="messageContainer"></div>
+
+        <!-- Address Form -->
+        <form id="addressForm" novalidate>
+            <div class="form-group">
+                <label for="fullName">
+                    Full Name <span class="required">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="fullName" 
+                    name="fullName"
+                    required 
+                    placeholder="Enter your full name"
+                    autocomplete="name"
+                    minlength="2"
+                    maxlength="100"
+                >
+                <div class="field-error" id="fullNameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="phone">
+                    Phone Number <span class="required">*</span>
+                </label>
+                <input 
+                    type="tel" 
+                    id="phone" 
+                    name="phone"
+                    required 
+                    placeholder="10-digit mobile number"
+                    autocomplete="tel"
+                    maxlength="14"
+                    pattern="[0-9]{10}"
+                >
+                <div class="field-hint">We'll contact you if needed for delivery</div>
+                <div class="field-error" id="phoneError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="address1">
+                    Address Line 1 <span class="required">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="address1" 
+                    name="address1"
+                    required 
+                    placeholder="House/Flat No., Building Name"
+                    autocomplete="address-line1"
+                    maxlength="200"
+                >
+                <div class="field-error" id="address1Error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="address2">
+                    Address Line 2 (Optional)
+                </label>
+                <input 
+                    type="text" 
+                    id="address2" 
+                    name="address2"
+                    placeholder="Street, Area, Landmark"
+                    autocomplete="address-line2"
+                    maxlength="200"
+                >
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="city">
+                        City <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="city" 
+                        name="city"
+                        required 
+                        placeholder="City"
+                        autocomplete="address-level2"
+                        maxlength="100"
+                    >
+                    <div class="field-error" id="cityError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="state">
+                        State <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="state" 
+                        name="state"
+                        required 
+                        placeholder="State"
+                        autocomplete="address-level1"
+                        maxlength="100"
+                    >
+                    <div class="field-error" id="stateError"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="pincode">
+                    PIN Code <span class="required">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="pincode" 
+                    name="pincode"
+                    required 
+                    placeholder="6-digit PIN code"
+                    autocomplete="postal-code"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    inputmode="numeric"
+                >
+                <div class="field-hint">Indian postal code only</div>
+                <div class="field-error" id="pincodeError"></div>
+            </div>
+
+            <button type="submit" class="btn" id="submitBtn">
+                <span>📍 Save Address & Continue to Designer</span>
+            </button>
+        </form>
+
+        <div class="skip-link">
+            <a href="#" id="skipLink">
+                <span>Skip for now</span>
+                <span>→</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- ==================== JavaScript ==================== -->
+    <script type="module">
+        // ==================== Firebase Setup ====================
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // ==================== Global State ====================
+        let currentUser = null;
+        let profileData = null;
+
+        // Get profile ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const profileId = urlParams.get('profileId');
+
+        console.log('🔍 Profile ID:', profileId);
+
+        if (!profileId) {
+            console.error('❌ No profile ID in URL');
+            alert('Profile ID missing. Redirecting to dashboard...');
+            window.location.href = '/dashboard.html';
+        }
+
+        // ==================== Utility Functions ====================
+
+        function showLoading(text = 'Processing...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const textEl = overlay.querySelector('.loading-text');
+            textEl.textContent = text;
+            overlay.classList.remove('hide');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hide');
+        }
+
+        function showMessage(text, type = 'success') {
+            const container = document.getElementById('messageContainer');
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️';
+            container.innerHTML = `
+                <div class="message ${type}">
+                    <span>${icon}</span>
+                    <span>${text}</span>
+                </div>
+            `;
+            
+            // Scroll to message
+            container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function clearMessage() {
+            document.getElementById('messageContainer').innerHTML = '';
+        }
+
+        function showFieldError(fieldId, message) {
+            const errorEl = document.getElementById(fieldId + 'Error');
+            const inputEl = document.getElementById(fieldId);
+            
+            if (errorEl && inputEl) {
+                errorEl.textContent = message;
+                errorEl.classList.add('show');
+                inputEl.classList.add('error');
+            }
+        }
+
+        function clearFieldError(fieldId) {
+            const errorEl = document.getElementById(fieldId + 'Error');
+            const inputEl = document.getElementById(fieldId);
+            
+            if (errorEl && inputEl) {
+                errorEl.classList.remove('show');
+                inputEl.classList.remove('error');
+            }
+        }
+
+        function clearAllErrors() {
+            document.querySelectorAll('.field-error').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('input, textarea').forEach(el => el.classList.remove('error'));
+        }
+
+        // ==================== Validation Functions ====================
+
+        function validateFullName(name) {
+            name = name.trim();
+            if (!name) return 'Please enter your full name';
+            if (name.length < 2) return 'Name must be at least 2 characters';
+            if (name.length > 100) return 'Name is too long';
+            if (!/^[a-zA-Z\s.'-]+$/.test(name)) return 'Name contains invalid characters';
+            return null;
+        }
+
+        function validatePhone(phone) {
+            // Remove all non-digits
+            const digits = phone.replace(/\D/g, '');
+            
+            if (!digits) return 'Please enter your phone number';
+            if (digits.length !== 10) return 'Phone number must be 10 digits';
+            if (!/^[6-9]\d{9}$/.test(digits)) return 'Please enter a valid Indian mobile number';
+            
+            return null;
+        }
+
+        function validateAddress(address, fieldName = 'Address') {
+            address = address.trim();
+            if (!address) return `Please enter ${fieldName.toLowerCase()}`;
+            if (address.length < 3) return `${fieldName} is too short`;
+            if (address.length > 200) return `${fieldName} is too long`;
+            return null;
+        }
+
+        function validateCity(city) {
+            city = city.trim();
+            if (!city) return 'Please enter city';
+            if (city.length < 2) return 'City name is too short';
+            if (!/^[a-zA-Z\s.'-]+$/.test(city)) return 'City name contains invalid characters';
+            return null;
+        }
+
+        function validateState(state) {
+            state = state.trim();
+            if (!state) return 'Please enter state';
+            if (state.length < 2) return 'State name is too short';
+            if (!/^[a-zA-Z\s.'-]+$/.test(state)) return 'State name contains invalid characters';
+            return null;
+        }
+
+        function validatePincode(pincode) {
+            pincode = pincode.trim();
+            if (!pincode) return 'Please enter PIN code';
+            if (!/^\d{6}$/.test(pincode)) return 'PIN code must be exactly 6 digits';
+            return null;
+        }
+
+        // ==================== Auth Check ====================
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                console.log('✅ User authenticated:', user.email);
+                await loadProfile();
+            } else {
+                console.log('❌ No authenticated user');
+                alert('Please login to continue');
+                window.location.href = '/login.html';
+            }
+        });
+
+        // ==================== Load Profile ====================
+        async function loadProfile() {
+            try {
+                showLoading('Loading profile...');
+                
+                const docRef = doc(db, 'profiles', profileId);
+                const docSnap = await getDoc(docRef);
+
+                if (!docSnap.exists()) {
+                    hideLoading();
+                    alert('Profile not found');
+                    window.location.href = '/dashboard.html';
+                    return;
+                }
+
+                profileData = docSnap.data();
+                console.log('✅ Profile loaded:', profileData);
+
+                // Security check
+                if (profileData.userId !== currentUser.uid) {
+                    hideLoading();
+                    alert('You do not have permission to access this profile');
+                    window.location.href = '/dashboard.html';
+                    return;
+                }
+
+                // Pre-fill if address exists
+                if (profileData.shippingAddress) {
+                    const addr = profileData.shippingAddress;
+                    document.getElementById('fullName').value = addr.fullName || '';
+                    document.getElementById('phone').value = addr.phone || '';
+                    document.getElementById('address1').value = addr.address1 || '';
+                    document.getElementById('address2').value = addr.address2 || '';
+                    document.getElementById('city').value = addr.city || '';
+                    document.getElementById('state').value = addr.state || '';
+                    document.getElementById('pincode').value = addr.pincode || '';
+                    
+                    showMessage('ℹ️ Pre-filled with your saved address. You can update it below.', 'warning');
+                }
+
+                hideLoading();
+
+            } catch (error) {
+                console.error('❌ Error loading profile:', error);
+                hideLoading();
+                showMessage('Error loading profile: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== Form Input Handlers ====================
+
+        // Phone number formatting
+        const phoneInput = document.getElementById('phone');
+        phoneInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            if (value.length > 10) {
+                value = value.slice(0, 10);
+            }
+            
+            e.target.value = value;
+            
+            if (value) {
+                clearFieldError('phone');
+            }
+        });
+
+        // PIN code formatting
+        const pincodeInput = document.getElementById('pincode');
+        pincodeInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+            
+            if (e.target.value.length === 6) {
+                clearFieldError('pincode');
+            }
+        });
+
+        // Clear errors on input
+        ['fullName', 'address1', 'city', 'state'].forEach(fieldId => {
+            document.getElementById(fieldId).addEventListener('input', () => {
+                clearFieldError(fieldId);
+            });
+        });
+
+        // ==================== Form Submission ====================
+        const form = document.getElementById('addressForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!currentUser) {
+                showMessage('Please wait for authentication...', 'error');
+                return;
+            }
+
+            clearAllErrors();
+            clearMessage();
+
+            // Get form values
+            const formData = {
+                fullName: document.getElementById('fullName').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                address1: document.getElementById('address1').value.trim(),
+                address2: document.getElementById('address2').value.trim(),
+                city: document.getElementById('city').value.trim(),
+                state: document.getElementById('state').value.trim(),
+                pincode: document.getElementById('pincode').value.trim()
+            };
+
+            // Validate all fields
+            let hasError = false;
+
+            const nameError = validateFullName(formData.fullName);
+            if (nameError) {
+                showFieldError('fullName', nameError);
+                hasError = true;
+            }
+
+            const phoneError = validatePhone(formData.phone);
+            if (phoneError) {
+                showFieldError('phone', phoneError);
+                hasError = true;
+            }
+
+            const address1Error = validateAddress(formData.address1, 'Address Line 1');
+            if (address1Error) {
+                showFieldError('address1', address1Error);
+                hasError = true;
+            }
+
+            const cityError = validateCity(formData.city);
+            if (cityError) {
+                showFieldError('city', cityError);
+                hasError = true;
+            }
+
+            const stateError = validateState(formData.state);
+            if (stateError) {
+                showFieldError('state', stateError);
+                hasError = true;
+            }
+
+            const pincodeError = validatePincode(formData.pincode);
+            if (pincodeError) {
+                showFieldError('pincode', pincodeError);
+                hasError = true;
+            }
+
+            if (hasError) {
+                showMessage('Please fix the errors above', 'error');
+                return;
+            }
+
+            // Submit form
+            submitBtn.disabled = true;
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<span>💾 Saving address...</span>';
+            
+            showLoading('Saving your address...');
+
+            try {
+                const addressData = {
+                    shippingAddress: {
+                        fullName: formData.fullName,
+                        phone: formData.phone,
+                        address1: formData.address1,
+                        address2: formData.address2,
+                        city: formData.city,
+                        state: formData.state,
+                        pincode: formData.pincode,
+                        addedAt: serverTimestamp(),
+                        country: 'India'
+                    },
+                    cardDispatchStatus: 'pending',
+                    addressUpdatedAt: serverTimestamp()
+                };
+
+                const profileRef = doc(db, 'profiles', profileId);
+                await updateDoc(profileRef, addressData);
+
+                console.log('✅ Address saved successfully');
+                
+                hideLoading();
+                showMessage('✅ Address saved successfully! Redirecting...', 'success');
+
+                // Redirect to designer
+                setTimeout(() => {
+                    window.location.href = `/vehicle-qr-designer.html?profileId=${profileId}`;
+                }, 1500);
+
+            } catch (error) {
+                console.error('❌ Error saving address:', error);
+                hideLoading();
+                showMessage('Error saving address: ' + error.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+
+        // ==================== Skip Link ====================
+        document.getElementById('skipLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            if (confirm('Are you sure you want to skip? You can add your address later from the dashboard.')) {
+                window.location.href = `/vehicle-qr-designer.html?profileId=${profileId}`;
+            }
+        });
+
+        // ==================== Debug Helper ====================
+        window.debugAddress = {
+            getProfileData: () => profileData,
+            getProfileId: () => profileId,
+            getCurrentUser: () => currentUser,
+            testValidation: () => {
+                console.log('Name:', validateFullName(document.getElementById('fullName').value));
+                console.log('Phone:', validatePhone(document.getElementById('phone').value));
+                console.log('PIN:', validatePincode(document.getElementById('pincode').value));
+            }
+        };
+
+        console.log('✅ Debug helper available: window.debugAddress');
+
+    </script>
+</body>
+</html>

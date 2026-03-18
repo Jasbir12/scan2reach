@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Export & Backup — Scan2Reach Admin</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--p:#6C63FF;--pd:#5a52d5;--bg:#0a0a1a;--card:#16213e;--card2:#1a1a2e;--sidebar:#0d0d24;--input:#252545;--text:#e8e8f0;--text2:#8888aa;--ok:#00c853;--no:#ff1744;--warn:#ff9100;--info:#2196f3;--border:#2a2a4a;--sw:260px;--radius:12px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+a{color:var(--p);text-decoration:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--p)}
+
+#maintenanceBanner{display:none;background:linear-gradient(90deg,#ff6d00,#ff9100);color:#000;text-align:center;padding:10px 20px;font-weight:600;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999}
+#maintenanceBanner .close-ban{position:absolute;right:16px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;background:none;border:none;color:#000}
+
+.screen-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:8000}
+.screen-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:48px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.screen-card h1{font-size:28px;margin-bottom:8px;background:linear-gradient(135deg,var(--p),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.screen-card p{color:var(--text2);margin-bottom:28px;font-size:14px}
+.screen-card .logo-icon{font-size:56px;margin-bottom:16px}
+.btn{padding:12px 24px;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:linear-gradient(135deg,var(--p),var(--pd));color:#fff}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,99,255,.4)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--p);color:var(--p)}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px}
+.btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border);background:var(--input);color:var(--text);cursor:pointer;transition:.2s}
+.btn-icon:hover{border-color:var(--p);color:var(--p)}
+.btn-google{background:#fff;color:#333;border:1px solid #ddd;font-size:15px;width:100%;justify-content:center;margin-top:8px;padding:14px}
+.btn-google:hover{background:#f5f5f5}
+
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sw);background:var(--sidebar);border-right:1px solid var(--border);z-index:7000;display:flex;flex-direction:column;transition:transform .3s}
+.sidebar-logo{padding:24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.sidebar-logo span{font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--p),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sidebar-logo .logo-dot{width:36px;height:36px;background:linear-gradient(135deg,var(--p),#a78bfa);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff}
+.sidebar-nav{flex:1;overflow-y:auto;padding:12px 0}
+.nav-section{padding:8px 20px;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 20px;margin:2px 8px;border-radius:8px;color:var(--text2);cursor:pointer;transition:all .2s;font-size:13.5px;text-decoration:none}
+.nav-item:hover{background:rgba(108,99,255,.1);color:var(--text)}
+.nav-item.active{background:rgba(108,99,255,.15);color:var(--p);font-weight:600}
+.nav-item .nav-icon{font-size:18px;width:24px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer .admin-info-mini{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sidebar-footer .admin-avatar{width:36px;height:36px;background:linear-gradient(135deg,var(--p),#a78bfa);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff}
+.sidebar-footer .admin-name{font-size:13px;font-weight:600}
+.sidebar-footer .admin-role{font-size:11px;color:var(--text2)}
+
+.main{margin-left:var(--sw);min-height:100vh;transition:margin .3s}
+.header{position:sticky;top:0;z-index:6000;background:rgba(10,10,26,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
+.header-left{display:flex;align-items:center;gap:16px}
+.hamburger{display:none;background:none;border:none;color:var(--text);font-size:24px;cursor:pointer}
+.header-title{font-size:20px;font-weight:700}
+.header-sub{font-size:12px;color:var(--text2)}
+.header-right{display:flex;align-items:center;gap:10px}
+.content{padding:24px 28px}
+
+/* Section titles */
+.section-title{font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.section-desc{font-size:13px;color:var(--text2);margin-bottom:20px;margin-top:-8px}
+
+/* Database Summary Cards */
+.db-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:32px}
+.db-stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;text-align:center;transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden}
+.db-stat:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.3)}
+.db-stat .ds-icon{font-size:28px;margin-bottom:8px}
+.db-stat .ds-count{font-size:30px;font-weight:800;margin-bottom:2px}
+.db-stat .ds-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.db-stat .ds-loading{display:none;position:absolute;inset:0;background:rgba(22,33,62,.9);align-items:center;justify-content:center;border-radius:var(--radius)}
+.db-stat.loading .ds-loading{display:flex}
+.db-stat::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
+.ds-blue::after{background:var(--info)}
+.ds-purple::after{background:var(--p)}
+.ds-green::after{background:var(--ok)}
+.ds-orange::after{background:var(--warn)}
+.ds-red::after{background:var(--no)}
+.ds-cyan::after{background:#00e5ff}
+.ds-pink::after{background:#e91e63}
+.ds-teal::after{background:#009688}
+
+/* Export Grid */
+.export-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:32px}
+.export-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;transition:transform .2s,box-shadow .2s}
+.export-card:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.3)}
+.export-card-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.export-card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.export-card-title{font-size:15px;font-weight:700}
+.export-card-sub{font-size:11px;color:var(--text2)}
+.export-card-info{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:10px 12px;background:var(--input);border-radius:8px}
+.export-card-count{font-size:20px;font-weight:800;color:var(--p)}
+.export-card-count-label{font-size:10px;color:var(--text2);text-transform:uppercase}
+.export-card-size{font-size:11px;color:var(--text2)}
+.export-card-btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(108,99,255,.12);color:var(--p);border:1px solid rgba(108,99,255,.3)}
+.export-card-btn:hover{background:rgba(108,99,255,.25);transform:translateY(-1px)}
+.export-card-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.export-card-btn.downloading{background:rgba(0,200,83,.12);color:var(--ok);border-color:rgba(0,200,83,.3)}
+.export-card-btn.downloading::after{content:'';width:14px;height:14px;border:2px solid rgba(0,200,83,.3);border-top-color:var(--ok);border-radius:50%;animation:spin .6s linear infinite;margin-left:4px}
+
+/* Full Backup Section */
+.backup-section{background:linear-gradient(135deg,rgba(108,99,255,.08),rgba(167,139,250,.08));border:1px solid rgba(108,99,255,.2);border-radius:16px;padding:28px;margin-bottom:32px;position:relative;overflow:hidden}
+.backup-section::before{content:'';position:absolute;top:-40px;right:-40px;width:120px;height:120px;background:radial-gradient(circle,rgba(108,99,255,.15),transparent);border-radius:50%}
+.backup-header{display:flex;align-items:center;gap:16px;margin-bottom:16px;position:relative}
+.backup-icon{width:56px;height:56px;background:linear-gradient(135deg,var(--p),#a78bfa);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 8px 20px rgba(108,99,255,.3)}
+.backup-title{font-size:20px;font-weight:800}
+.backup-desc{font-size:13px;color:var(--text2)}
+.backup-body{display:flex;gap:20px;align-items:center;flex-wrap:wrap;position:relative}
+.backup-btn{padding:14px 32px;background:linear-gradient(135deg,var(--p),#a78bfa);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px;box-shadow:0 6px 20px rgba(108,99,255,.3)}
+.backup-btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(108,99,255,.4)}
+.backup-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.backup-btn.backing-up{background:linear-gradient(135deg,#1565c0,#42a5f5)}
+.backup-meta{font-size:12px;color:var(--text2)}
+.backup-meta strong{color:var(--text);font-weight:600}
+.backup-collections{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.backup-coll-tag{padding:3px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.2);border-radius:14px;font-size:10px;font-weight:600;color:var(--p)}
+
+/* Backup History */
+.history-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:32px}
+.history-section h3{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.history-list{display:flex;flex-direction:column;gap:8px}
+.history-item{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--input);border-radius:10px;transition:transform .15s}
+.history-item:hover{transform:translateX(4px)}
+.history-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.history-icon.hi-export{background:rgba(0,200,83,.15);color:var(--ok)}
+.history-icon.hi-backup{background:rgba(108,99,255,.15);color:var(--p)}
+.history-body{flex:1;min-width:0}
+.history-title{font-size:13px;font-weight:600}
+.history-sub{font-size:11px;color:var(--text2)}
+.history-time{font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0}
+.history-badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;flex-shrink:0}
+.hb-ok{background:rgba(0,200,83,.15);color:var(--ok)}
+
+.no-data{text-align:center;padding:40px;color:var(--text2)}
+.no-data .no-icon{font-size:40px;margin-bottom:10px;opacity:.5}
+.loading-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite}
+.mini-spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Progress bar */
+.progress-bar-wrap{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:12px;display:none}
+.progress-bar-wrap.show{display:block}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--p),#a78bfa);border-radius:3px;transition:width .3s;width:0%}
+
+.search-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:8600;padding:60px 20px}
+.search-overlay.show{display:block;animation:fadeUp .2s ease}
+.search-overlay-inner{max-width:640px;margin:0 auto}
+.search-overlay input{width:100%;padding:18px 24px 18px 52px;border:2px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);font-size:18px;outline:none;transition:.3s}
+.search-overlay input:focus{border-color:var(--p)}
+.search-overlay .so-icon{position:absolute;left:20px;top:20px;font-size:20px;color:var(--text2)}
+.search-overlay .so-esc{position:absolute;right:20px;top:18px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text2);background:var(--input)}
+.search-results{margin-top:20px;max-height:60vh;overflow-y:auto}
+.sr-section{margin-bottom:16px}
+.sr-section h4{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px}
+.sr-item{padding:12px 16px;border-radius:8px;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:12px}
+.sr-item:hover{background:rgba(108,99,255,.1)}
+
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:9998;display:flex;flex-direction:column;gap:8px}
+.toast{padding:14px 20px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;min-width:280px;max-width:420px;animation:slideInRight .3s ease;box-shadow:0 8px 25px rgba(0,0,0,.4)}
+.toast-ok{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff}
+.toast-no{background:linear-gradient(135deg,#b71c1c,#c62828);color:#fff}
+.toast-info{background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff}
+@keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+
+.hidden{display:none!important}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:6999}
+.sidebar.open+.sidebar-overlay{display:block}
+
+@media(max-width:1200px){.db-stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){
+.sidebar{transform:translateX(-100%)}
+.sidebar.open{transform:translateX(0)}
+.main{margin-left:0}
+.hamburger{display:block}
+.header{padding:12px 16px}
+.content{padding:16px}
+.db-stats{grid-template-columns:1fr 1fr}
+.export-grid{grid-template-columns:1fr}
+.backup-body{flex-direction:column;align-items:stretch}
+.backup-btn{justify-content:center}
+}
+@media(max-width:480px){.db-stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="maintenanceBanner">
+  ⚠️ Maintenance Mode is ON — <span id="maintenanceMsg">System under maintenance</span>
+  <button class="close-ban" onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<div id="loginScreen" class="screen-overlay">
+  <div class="screen-card">
+    <div class="logo-icon">🔐</div>
+    <h1>Scan2Reach Admin</h1>
+    <p>Sign in with your admin account</p>
+    <button class="btn btn-google" onclick="doLogin()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<div id="deniedScreen" class="screen-overlay hidden">
+  <div class="screen-card">
+    <div class="logo-icon">🚫</div>
+    <h1>Access Denied</h1>
+    <p>You don't have admin privileges.</p>
+    <button class="btn btn-outline" onclick="firebase.auth().signOut()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ==================== ADMIN PANEL ==================== -->
+<div id="adminPanel" class="hidden">
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><div class="logo-dot">S2</div><span>Scan2Reach</span></div>
+    <div class="sidebar-nav">
+      <div class="nav-section">Main</div>
+      <a class="nav-item" href="admin.html"><span class="nav-icon">📊</span> Dashboard</a>
+      <a class="nav-item" href="admin.html#users"><span class="nav-icon">👥</span> Users</a>
+      <a class="nav-item" href="admin.html#profiles"><span class="nav-icon">📇</span> Profiles</a>
+      <div class="nav-section">Management</div>
+      <a class="nav-item" href="admin-products.html"><span class="nav-icon">📦</span> Products</a>
+      <a class="nav-item" href="admin-products.html#qrcodes"><span class="nav-icon">🔲</span> QR Codes</a>
+      <div class="nav-section">Analytics</div>
+      <a class="nav-item" href="admin-calls.html"><span class="nav-icon">📞</span> Call Analytics</a>
+      <a class="nav-item" href="admin-scans.html"><span class="nav-icon">📈</span> Scan Analytics</a>
+      <div class="nav-section">System</div>
+      <a class="nav-item" href="admin-activity.html"><span class="nav-icon">🔔</span> Activity</a>
+      <a class="nav-item" href="admin-activity.html#logs"><span class="nav-icon">📋</span> Admin Logs</a>
+      <a class="nav-item" href="admin-settings.html"><span class="nav-icon">👑</span> Roles</a>
+      <a class="nav-item" href="admin-settings.html#settings"><span class="nav-icon">⚙️</span> Settings</a>
+      <a class="nav-item active"><span class="nav-icon">📥</span> Export</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="admin-info-mini">
+        <div class="admin-avatar" id="sidebarAvatar">A</div>
+        <div><div class="admin-name" id="sidebarName">Admin</div><div class="admin-role" id="sidebarRole">admin</div></div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="width:100%" onclick="doLogout()">🚪 Sign Out</button>
+    </div>
+  </nav>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <main class="main">
+    <header class="header">
+      <div class="header-left">
+        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <div>
+          <div class="header-title">📥 Export & Backup</div>
+          <div class="header-sub">Download data and create backups</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn-icon" title="Search" onclick="openSearch()">🔍</button>
+        <button class="btn-icon" title="Refresh Counts" onclick="refreshCounts()">🔄</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- DATABASE SUMMARY -->
+      <div class="section-title">📊 Database Summary</div>
+      <div class="section-desc">Live record counts across all major collections</div>
+      <div class="db-stats" id="dbStats">
+        <!-- Filled by JS -->
+      </div>
+
+      <!-- FULL BACKUP -->
+      <div class="backup-section">
+        <div class="backup-header">
+          <div class="backup-icon">💾</div>
+          <div>
+            <div class="backup-title">Full Database Backup</div>
+            <div class="backup-desc">Download every collection in one single JSON file</div>
+          </div>
+        </div>
+        <div class="backup-body">
+          <button class="backup-btn" id="fullBackupBtn" onclick="doFullBackup()">
+            💾 Create Full Backup
+          </button>
+          <div class="backup-meta">
+            <div>Includes <strong>8 collections</strong> in one file</div>
+            <div class="backup-collections">
+              <span class="backup-coll-tag">👥 users</span>
+              <span class="backup-coll-tag">📇 profiles</span>
+              <span class="backup-coll-tag">📦 products</span>
+              <span class="backup-coll-tag">🔲 qr_codes</span>
+              <span class="backup-coll-tag">📞 calls</span>
+              <span class="backup-coll-tag">📱 scans</span>
+              <span class="backup-coll-tag">🔔 activity_logs</span>
+              <span class="backup-coll-tag">📋 admin_logs</span>
+            </div>
+          </div>
+        </div>
+        <div class="progress-bar-wrap" id="backupProgress">
+          <div class="progress-bar" id="backupBar"></div>
+        </div>
+      </div>
+
+      <!-- PER-COLLECTION EXPORTS -->
+      <div class="section-title">📤 Per-Collection Export</div>
+      <div class="section-desc">Download individual collections as dated JSON files</div>
+      <div class="export-grid" id="exportGrid">
+        <!-- Filled by JS -->
+      </div>
+
+      <!-- BACKUP HISTORY -->
+      <div class="history-section">
+        <h3>📜 Backup History <span style="font-size:11px;color:var(--text2);font-weight:400;margin-left:auto">Current session only</span></h3>
+        <div id="historyList">
+          <div class="no-data" style="padding:24px"><div class="no-icon">📜</div>No exports yet this session</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-overlay-inner">
+    <div style="position:relative">
+      <span class="so-icon">🔍</span>
+      <input type="text" id="globalSearchInput" placeholder="Search collections..." oninput="doGlobalSearch()">
+      <span class="so-esc">ESC</span>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ════════════════════════════════════════════════════
+// FIREBASE
+// ════════════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:"AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+  authDomain:"scan2reach-new.firebaseapp.com",
+  projectId:"scan2reach-new",
+  storageBucket:"scan2reach-new.firebasestorage.app",
+  messagingSenderId:"466815844554",
+  appId:"1:466815844554:web:caf16651ec18d026d8b433"
+});
+const auth=firebase.auth(),db=firebase.firestore();
+
+// ════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════
+const S={
+  user:null,admin:null,
+  counts:{},
+  history:[],
+  exporting:{}
+};
+
+// Collection configs
+const COLLECTIONS=[
+  {id:'users',         name:'Users',         icon:'👥', color:'ds-blue',   iconBg:'rgba(33,150,243,.15)',  iconColor:'var(--info)'},
+  {id:'profiles',      name:'Profiles',      icon:'📇', color:'ds-purple', iconBg:'rgba(108,99,255,.15)',  iconColor:'var(--p)'},
+  {id:'products',      name:'Products',      icon:'📦', color:'ds-green',  iconBg:'rgba(0,200,83,.15)',    iconColor:'var(--ok)'},
+  {id:'qr_codes',      name:'QR Codes',      icon:'🔲', color:'ds-orange', iconBg:'rgba(255,145,0,.15)',   iconColor:'var(--warn)'},
+  {id:'calls',         name:'Calls',         icon:'📞', color:'ds-pink',   iconBg:'rgba(233,30,99,.15)',   iconColor:'#e91e63'},
+  {id:'scans',         name:'Scans',         icon:'📱', color:'ds-cyan',   iconBg:'rgba(0,229,255,.15)',   iconColor:'#00e5ff'},
+  {id:'activity_logs', name:'Activity Logs', icon:'🔔', color:'ds-teal',   iconBg:'rgba(0,150,136,.15)',   iconColor:'#009688'},
+  {id:'admin_logs',    name:'Admin Logs',    icon:'📋', color:'ds-red',    iconBg:'rgba(255,23,68,.15)',   iconColor:'var(--no)'}
+];
+
+// ════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════
+auth.onAuthStateChanged(async u=>{
+  if(!u){showScreen('login');return}
+  S.user=u;
+  try{
+    const d=await db.collection('admins').doc(u.uid).get();
+    if(d.exists){S.admin={id:d.id,...d.data()};showScreen('admin');initAdmin()}
+    else{showScreen('denied')}
+  }catch(e){showScreen('denied')}
+});
+function showScreen(s){
+  document.getElementById('loginScreen').classList.toggle('hidden',s!=='login');
+  document.getElementById('deniedScreen').classList.toggle('hidden',s!=='denied');
+  document.getElementById('adminPanel').classList.toggle('hidden',s!=='admin');
+}
+function doLogin(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>toast(e.message,'no'))}
+function doLogout(){auth.signOut().then(()=>location.reload())}
+
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+async function initAdmin(){
+  document.getElementById('sidebarAvatar').textContent=(S.admin.name||S.admin.email||'A')[0].toUpperCase();
+  document.getElementById('sidebarName').textContent=S.admin.name||S.admin.email;
+  document.getElementById('sidebarRole').textContent=S.admin.role||'admin';
+  checkMaintenance();
+  renderExportCards();
+  await loadCounts();
+  logAdmin('login','admin_panel',null,'Opened Export & Backup page');
+}
+
+async function checkMaintenance(){
+  try{
+    const d=await db.collection('settings').doc('general').get();
+    if(d.exists&&d.data().maintenanceMode){
+      document.getElementById('maintenanceBanner').style.display='block';
+      document.getElementById('maintenanceMsg').textContent=d.data().maintenanceMessage||'System under maintenance';
+    }
+  }catch(e){}
+}
+
+// ════════════════════════════════════════════════════
+// LOAD COUNTS
+// ════════════════════════════════════════════════════
+async function loadCounts(){
+  // Render loading state
+  renderDbStats(true);
+
+  const promises=COLLECTIONS.map(async c=>{
+    try{
+      const snap=await db.collection(c.id).get();
+      S.counts[c.id]=snap.size;
+    }catch(e){
+      S.counts[c.id]=0;
+    }
+  });
+
+  await Promise.all(promises);
+  renderDbStats(false);
+  updateExportCounts();
+}
+
+async function refreshCounts(){
+  toast('Refreshing counts...','info');
+  await loadCounts();
+  toast('Counts updated!','ok');
+}
+
+// ════════════════════════════════════════════════════
+// DATABASE SUMMARY CARDS
+// ════════════════════════════════════════════════════
+function renderDbStats(loading){
+  const el=document.getElementById('dbStats');
+  el.innerHTML=COLLECTIONS.map(c=>{
+    const count=S.counts[c.id];
+    const displayCount=loading?'—':(count!==undefined?count.toLocaleString():'—');
+    return `
+    <div class="db-stat ${c.color} ${loading?'loading':''}">
+      <div class="ds-icon">${c.icon}</div>
+      <div class="ds-count">${displayCount}</div>
+      <div class="ds-label">${c.name}</div>
+      <div class="ds-loading"><div class="mini-spinner"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════
+// EXPORT CARDS
+// ════════════════════════════════════════════════════
+function renderExportCards(){
+  const el=document.getElementById('exportGrid');
+  el.innerHTML=COLLECTIONS.map(c=>{
+    const count=S.counts[c.id];
+    const displayCount=count!==undefined?count:'—';
+    return `
+    <div class="export-card" id="exportCard-${c.id}">
+      <div class="export-card-header">
+        <div class="export-card-icon" style="background:${c.iconBg};color:${c.iconColor}">${c.icon}</div>
+        <div>
+          <div class="export-card-title">${c.name}</div>
+          <div class="export-card-sub">${c.id} collection</div>
+        </div>
+      </div>
+      <div class="export-card-info">
+        <div>
+          <div class="export-card-count" id="exportCount-${c.id}">${displayCount}</div>
+          <div class="export-card-count-label">Records</div>
+        </div>
+        <div class="export-card-size" id="exportSize-${c.id}">—</div>
+      </div>
+      <button class="export-card-btn" id="exportBtn-${c.id}" onclick="exportCollection('${c.id}')">
+        📥 Download ${c.name} JSON
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function updateExportCounts(){
+  COLLECTIONS.forEach(c=>{
+    const countEl=document.getElementById('exportCount-'+c.id);
+    if(countEl)countEl.textContent=S.counts[c.id]!==undefined?S.counts[c.id].toLocaleString():'—';
+  });
+}
+
+// ════════════════════════════════════════════════════
+// EXPORT SINGLE COLLECTION
+// ════════════════════════════════════════════════════
+async function exportCollection(collId){
+  if(S.exporting[collId])return;
+
+  const btn=document.getElementById('exportBtn-'+collId);
+  const col=COLLECTIONS.find(c=>c.id===collId);
+  if(!btn||!col)return;
+
+  // Set loading state
+  S.exporting[collId]=true;
+  btn.disabled=true;
+  btn.classList.add('downloading');
+  btn.innerHTML=`⏳ Exporting ${col.name}...`;
+
+  try{
+    const snap=await db.collection(collId).get();
+    const data=snap.docs.map(d=>({id:d.id,...serializeDoc(d.data())}));
+
+    const date=new Date().toISOString().slice(0,10);
+    const filename=`${collId}_${date}.json`;
+    const jsonStr=JSON.stringify(data,null,2);
+    downloadFile(jsonStr,filename);
+
+    // Update size display
+    const sizeEl=document.getElementById('exportSize-'+collId);
+    if(sizeEl)sizeEl.textContent=formatBytes(jsonStr.length);
+
+    // Update count
+    S.counts[collId]=data.length;
+    const countEl=document.getElementById('exportCount-'+collId);
+    if(countEl)countEl.textContent=data.length.toLocaleString();
+
+    // Add to history
+    addHistory('export',col.name,data.length,jsonStr.length,filename);
+
+    // Log
+    await logAdmin('export',collId,null,`Exported ${data.length} ${col.name} records`);
+
+    toast(`✅ Exported ${data.length} ${col.name} records`,'ok');
+
+    // Success state
+    btn.innerHTML=`✅ Downloaded ${col.name}`;
+    setTimeout(()=>{
+      btn.innerHTML=`📥 Download ${col.name} JSON`;
+      btn.classList.remove('downloading');
+      btn.disabled=false;
+      S.exporting[collId]=false;
+    },2000);
+
+  }catch(e){
+    toast(`Export failed: ${e.message}`,'no');
+    btn.innerHTML=`📥 Download ${col.name} JSON`;
+    btn.classList.remove('downloading');
+    btn.disabled=false;
+    S.exporting[collId]=false;
+  }
+}
+
+// ════════════════════════════════════════════════════
+// FULL BACKUP
+// ════════════════════════════════════════════════════
+async function doFullBackup(){
+  const btn=document.getElementById('fullBackupBtn');
+  const progressWrap=document.getElementById('backupProgress');
+  const progressBar=document.getElementById('backupBar');
+
+  if(btn.disabled)return;
+
+  btn.disabled=true;
+  btn.classList.add('backing-up');
+  btn.innerHTML='⏳ Creating Backup...';
+  progressWrap.classList.add('show');
+  progressBar.style.width='0%';
+
+  const backup={
+    metadata:{
+      createdAt:new Date().toISOString(),
+      createdBy:S.admin.email,
+      adminName:S.admin.name||S.admin.email,
+      projectId:'scan2reach-new',
+      version:'1.0',
+      totalCollections:COLLECTIONS.length
+    },
+    collections:{}
+  };
+
+  let completed=0;
+  let totalRecords=0;
+  let errors=[];
+
+  for(const col of COLLECTIONS){
+    try{
+      btn.innerHTML=`⏳ Backing up ${col.name}...`;
+      const snap=await db.collection(col.id).get();
+      const data=snap.docs.map(d=>({id:d.id,...serializeDoc(d.data())}));
+      backup.collections[col.id]={
+        count:data.length,
+        exportedAt:new Date().toISOString(),
+        records:data
+      };
+      totalRecords+=data.length;
+      S.counts[col.id]=data.length;
+    }catch(e){
+      errors.push(col.id);
+      backup.collections[col.id]={count:0,error:e.message,records:[]};
+    }
+    completed++;
+    progressBar.style.width=Math.round(completed/COLLECTIONS.length*100)+'%';
+  }
+
+  backup.metadata.totalRecords=totalRecords;
+  backup.metadata.errors=errors;
+
+  // Download
+  const date=new Date().toISOString().slice(0,10);
+  const filename=`scan2reach_backup_${date}.json`;
+  const jsonStr=JSON.stringify(backup,null,2);
+  downloadFile(jsonStr,filename);
+
+  // Add to history
+  addHistory('backup','Full Backup',totalRecords,jsonStr.length,filename);
+
+  // Log
+  await logAdmin('export','full_backup',null,`Full backup: ${totalRecords} records across ${COLLECTIONS.length} collections${errors.length?` (${errors.length} errors)`:''}`);
+
+  // Update UI
+  renderDbStats(false);
+  updateExportCounts();
+
+  // Done
+  progressBar.style.width='100%';
+  btn.innerHTML='✅ Backup Complete!';
+  btn.classList.remove('backing-up');
+
+  if(errors.length){
+    toast(`Backup done with ${errors.length} errors: ${errors.join(', ')}`,'info');
+  }else{
+    toast(`Full backup complete! ${totalRecords} records saved.`,'ok');
+  }
+
+  setTimeout(()=>{
+    btn.innerHTML='💾 Create Full Backup';
+    btn.disabled=false;
+    progressWrap.classList.remove('show');
+  },3000);
+}
+
+// ════════════════════════════════════════════════════
+// BACKUP HISTORY (Session)
+// ════════════════════════════════════════════════════
+function addHistory(type,name,records,bytes,filename){
+  S.history.unshift({
+    type,name,records,bytes,filename,
+    timestamp:new Date()
+  });
+  renderHistory();
+}
+
+function renderHistory(){
+  const el=document.getElementById('historyList');
+
+  if(!S.history.length){
+    el.innerHTML='<div class="no-data" style="padding:24px"><div class="no-icon">📜</div>No exports yet this session</div>';
+    return;
+  }
+
+  el.innerHTML='<div class="history-list">'+S.history.map(h=>{
+    const isBackup=h.type==='backup';
+    const iconCls=isBackup?'hi-backup':'hi-export';
+    const icon=isBackup?'💾':'📤';
+    const time=h.timestamp.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+    const date=h.timestamp.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+
+    return `
+    <div class="history-item">
+      <div class="history-icon ${iconCls}">${icon}</div>
+      <div class="history-body">
+        <div class="history-title">${esc(h.name)}</div>
+        <div class="history-sub">${h.records.toLocaleString()} records · ${formatBytes(h.bytes)} · ${esc(h.filename)}</div>
+      </div>
+      <span class="history-badge hb-ok">✓ Done</span>
+      <div class="history-time">${date} ${time}</div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ════════════════════════════════════════════════════
+// SERIALIZE FIRESTORE DOC
+// ════════════════════════════════════════════════════
+function serializeDoc(data){
+  const result={};
+  for(const[key,val] of Object.entries(data)){
+    if(val&&typeof val==='object'&&typeof val.toDate==='function'){
+      // Firestore Timestamp
+      result[key]={_type:'timestamp',value:val.toDate().toISOString()};
+    }else if(val&&typeof val==='object'&&val.seconds!==undefined){
+      // Already serialized timestamp
+      result[key]={_type:'timestamp',value:new Date(val.seconds*1000).toISOString()};
+    }else if(val&&typeof val==='object'&&val._seconds!==undefined){
+      result[key]={_type:'timestamp',value:new Date(val._seconds*1000).toISOString()};
+    }else if(Array.isArray(val)){
+      result[key]=val;
+    }else if(val&&typeof val==='object'){
+      result[key]=serializeDoc(val);
+    }else{
+      result[key]=val;
+    }
+  }
+  return result;
+}
+
+// ════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════
+function formatBytes(bytes){
+  if(bytes===0)return '0 B';
+  const k=1024;
+  const sizes=['B','KB','MB','GB'];
+  const i=Math.floor(Math.log(bytes)/Math.log(k));
+  return parseFloat((bytes/Math.pow(k,i)).toFixed(1))+' '+sizes[i];
+}
+
+function downloadFile(content,filename){
+  const blob=new Blob([content],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+function toast(msg,type='info'){
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div');t.className=`toast toast-${type}`;
+  const icons={ok:'✅',no:'❌',info:'ℹ️'};
+  t.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.animation='slideOut .3s ease forwards';setTimeout(()=>t.remove(),300)},3500);
+}
+
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
+
+async function logAdmin(action,collection,targetId,details){
+  try{
+    await db.collection('admin_logs').add({
+      adminId:S.admin.id,adminEmail:S.admin.email,adminName:S.admin.name||S.admin.email,
+      action,targetCollection:collection,targetId:targetId||null,details:details||'',
+      timestamp:firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){console.warn('Log failed:',e)}
+}
+
+// ════════════════════════════════════════════════════
+// SEARCH
+// ════════════════════════════════════════════════════
+function openSearch(){
+  document.getElementById('searchOverlay').classList.add('show');
+  document.getElementById('globalSearchInput').value='';
+  document.getElementById('globalSearchInput').focus();
+  document.getElementById('searchResults').innerHTML='';
+}
+function closeSearch(){document.getElementById('searchOverlay').classList.remove('show')}
+
+function doGlobalSearch(){
+  const q=document.getElementById('globalSearchInput').value.toLowerCase().trim();
+  const r=document.getElementById('searchResults');
+  if(!q){r.innerHTML='';return}
+  let html='';
+
+  const matched=COLLECTIONS.filter(c=>
+    c.name.toLowerCase().includes(q)||c.id.toLowerCase().includes(q)
+  );
+
+  if(matched.length){
+    html+='<div class="sr-section"><h4>📤 Collections</h4>';
+    matched.forEach(c=>{
+      const count=S.counts[c.id]!==undefined?S.counts[c.id]:'—';
+      html+=`<div class="sr-item" onclick="closeSearch();exportCollection('${c.id}')">
+        <span class="sr-icon">${c.icon}</span>
+        <div><div class="sr-title">${c.name}</div><div class="sr-sub">${count} records · Click to export</div></div>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  // Check for backup keyword
+  if('backup'.includes(q)||'full'.includes(q)||'all'.includes(q)){
+    html+='<div class="sr-section"><h4>💾 Backup</h4>';
+    html+=`<div class="sr-item" onclick="closeSearch();doFullBackup()">
+      <span class="sr-icon">💾</span>
+      <div><div class="sr-title">Full Database Backup</div><div class="sr-sub">All ${COLLECTIONS.length} collections in one file</div></div>
+    </div>`;
+    html+='</div>';
+  }
+
+  if(!html)html='<div class="no-data" style="padding:32px"><div class="no-icon">🔍</div>No results</div>';
+  r.innerHTML=html;
+}
+
+// ════════════════════════════════════════════════════
+// KEYBOARD
+// ════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeSearch();
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openSearch()}
+});
+</script>
+</body>
+</html>

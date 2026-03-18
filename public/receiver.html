@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Receiver - Scan2Reach</title>
+    <meta name="description" content="Receive calls from your Scan2Reach QR codes">
+    <meta name="theme-color" content="#667eea">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="/assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-500: #6b7280;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 24px;
+            padding: 2.5rem;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 2rem;
+        }
+
+        .status-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+
+        .status-title {
+            color: var(--gray-900);
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-subtitle {
+            color: var(--gray-500);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-top: 1rem;
+        }
+
+        .badge-online {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-offline {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-busy {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .incoming-call {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .incoming-call.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .call-card {
+            background: white;
+            border-radius: 32px;
+            padding: 3rem 2rem;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .caller-icon {
+            font-size: 6rem;
+            margin-bottom: 1rem;
+            animation: ring 1s ease-in-out infinite;
+        }
+
+        @keyframes ring {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-10deg); }
+            75% { transform: rotate(10deg); }
+        }
+
+        .call-title {
+            color: var(--gray-900);
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .caller-info {
+            color: var(--gray-600);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+
+        .call-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .call-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-accept {
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: white;
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-accept:hover {
+            transform: scale(1.1);
+        }
+
+        .btn-reject {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            color: white;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-reject:hover {
+            transform: scale(1.1);
+        }
+
+        .active-call {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+        }
+
+        .active-call.show {
+            display: flex;
+        }
+
+        .call-timer {
+            font-size: 3rem;
+            font-weight: 800;
+            margin: 2rem 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .call-info {
+            font-size: 1.25rem;
+            margin-bottom: 3rem;
+            opacity: 0.9;
+        }
+
+        .call-controls {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            font-size: 1.75rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        .btn-end-call {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+
+        .history-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .history-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-info {
+            flex: 1;
+        }
+
+        .history-vehicle {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .history-time {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        .history-duration {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .hide {
+            display: none !important;
+        }
+
+        @media (max-width: 640px) {
+            .status-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .call-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .call-timer {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Status Card -->
+        <div class="status-card" id="statusCard">
+            <div class="status-icon" id="statusIcon">📱</div>
+            <h1 class="status-title" id="statusTitle">Connecting...</h1>
+            <p class="status-subtitle" id="statusSubtitle">Please wait</p>
+            <div class="status-badge badge-offline" id="statusBadge">Offline</div>
+        </div>
+
+        <!-- Call History -->
+        <div class="history-card" id="historyCard">
+            <h2 class="history-title">
+                <span>📜</span>
+                <span>Recent Calls</span>
+            </h2>
+            <div id="historyList">
+                <p style="opacity:0.7;text-align:center;">No calls yet</p>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <button class="settings-btn" onclick="showSettings()">
+            ⚙️ Settings
+        </button>
+    </div>
+
+    <!-- Incoming Call UI -->
+    <div class="incoming-call" id="incomingCall">
+        <div class="call-card">
+            <div class="caller-icon">📞</div>
+            <h2 class="call-title">Incoming Call</h2>
+            <p class="caller-info" id="callerInfo">Unknown</p>
+            <div class="call-actions">
+                <button class="call-btn btn-reject" onclick="rejectCall()">
+                    ❌
+                </button>
+                <button class="call-btn btn-accept" onclick="acceptCall()">
+                    ✅
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Call UI -->
+    <div class="active-call" id="activeCall">
+        <div class="caller-icon" style="font-size:5rem;">📞</div>
+        <div class="call-timer" id="callTimer">00:00</div>
+        <div class="call-info" id="activeCallInfo">Connected</div>
+        <div class="call-controls">
+            <button class="control-btn" id="muteBtn" onclick="toggleMute()">
+                🔇
+            </button>
+            <button class="control-btn btn-end-call" onclick="endCall()">
+                📞
+            </button>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="ringtone" loop>
+        <source src="/assets/ringtone.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="remoteAudio"></audio>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+
+    <script>
+        // ==================== Firebase Configuration ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const messaging = firebase.messaging();
+
+        // ==================== 🔑 YOUR VAPID KEY ====================
+        const VAPID_KEY = "BLH-1G-vk3bFVEohUjGOBsso8LewG17xB6nNBBAkI7hHXCFzgFQnVvMRMafHPu35QicIKx4ycmysAZb7oi6wvW8";
+
+        // ==================== Global State ====================
+        let currentUser = null;
+        let currentCall = null;
+        let peerConnection = null;
+        let localStream = null;
+        let callTimer = null;
+        let callStartTime = null;
+        let isMuted = false;
+
+        // ==================== WebRTC Configuration ====================
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        };
+
+        // ==================== Initialize ====================
+        async function initialize() {
+            console.log('🚀 Initializing receiver...');
+
+            // Check auth
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    console.log('✅ User authenticated:', user.email);
+                    await setupReceiver();
+                } else {
+                    console.log('❌ No user, redirecting to login');
+                    window.location.href = '/login.html';
+                }
+            });
+
+            // Check for incoming call in URL (from notification click)
+            const urlParams = new URLSearchParams(window.location.search);
+            const callId = urlParams.get('callId');
+            const action = urlParams.get('action');
+
+            if (callId && action === 'answer') {
+                console.log('📞 Auto-answering call from notification:', callId);
+                setTimeout(() => {
+                    loadAndAnswerCall(callId);
+                }, 2000);
+            }
+        }
+
+        // ==================== Setup Receiver ====================
+        async function setupReceiver() {
+            try {
+                updateStatus('online', '✅ Online', 'Ready to receive calls');
+
+                // Register Service Worker
+                if ('serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                    console.log('✅ Service Worker registered');
+
+                    // Request notification permission
+                    const permission = await Notification.requestPermission();
+                    console.log('🔔 Notification permission:', permission);
+
+                    if (permission === 'granted') {
+                        // Get FCM token
+                        const token = await messaging.getToken({
+                            vapidKey: VAPID_KEY,
+                            serviceWorkerRegistration: registration
+                        });
+
+                        console.log('✅ FCM Token:', token.substring(0, 20) + '...');
+
+                        // Save token to Firestore
+                        await db.collection('users').doc(currentUser.uid).set({
+                            fcmToken: token,
+                            fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            email: currentUser.email,
+                            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+
+                        console.log('✅ FCM token saved to Firestore');
+                    } else {
+                        console.warn('⚠️ Notification permission denied');
+                        updateStatus('online', '⚠️ Limited', 'Enable notifications for background calls');
+                    }
+                }
+
+                // Listen for foreground messages
+                messaging.onMessage((payload) => {
+                    console.log('📩 Foreground message received:', payload);
+                    handleIncomingCall(payload.data);
+                });
+
+                // Listen for incoming calls in Firestore
+                listenForCalls();
+
+                // Load call history
+                loadCallHistory();
+
+            } catch (error) {
+                console.error('❌ Setup error:', error);
+                updateStatus('offline', '❌ Error', error.message);
+            }
+        }
+
+        // ==================== Listen for Incoming Calls ====================
+        function listenForCalls() {
+            db.collection('calls')
+                .where('receiverId', '==', currentUser.uid)
+                .where('status', '==', 'ringing')
+                .onSnapshot((snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const call = { id: change.doc.id, ...change.doc.data() };
+                            console.log('📞 Incoming call detected:', call);
+                            showIncomingCallUI(call);
+                        }
+                    });
+                });
+        }
+
+        // ==================== Handle Incoming Call ====================
+        function handleIncomingCall(data) {
+            console.log('📞 Handling incoming call:', data);
+            
+            db.collection('calls').doc(data.callId).get()
+                .then((doc) => {
+                    if (doc.exists) {
+                        const call = { id: doc.id, ...doc.data() };
+                        showIncomingCallUI(call);
+                    }
+                });
+        }
+
+        // ==================== Show Incoming Call UI ====================
+        function showIncomingCallUI(call) {
+            currentCall = call;
+            
+            const callerInfo = call.vehicleNumber || call.callerName || 'Unknown Caller';
+            document.getElementById('callerInfo').textContent = `Vehicle: ${callerInfo}`;
+            document.getElementById('incomingCall').classList.add('show');
+            
+            // Play ringtone
+            const ringtone = document.getElementById('ringtone');
+            ringtone.play().catch(e => console.log('Ringtone play failed:', e));
+            
+            // Vibrate if supported
+            if ('vibrate' in navigator) {
+                navigator.vibrate([200, 100, 200, 100, 200, 100, 200]);
+            }
+        }
+
+        // ==================== Accept Call ====================
+        async function acceptCall() {
+            if (!currentCall) return;
+
+            try {
+                console.log('✅ Accepting call:', currentCall.id);
+
+                // Stop ringtone
+                document.getElementById('ringtone').pause();
+
+                // Hide incoming call UI
+                document.getElementById('incomingCall').classList.remove('show');
+
+                // Show active call UI
+                document.getElementById('activeCall').classList.add('show');
+                document.getElementById('activeCallInfo').textContent = `Vehicle: ${currentCall.vehicleNumber || 'Unknown'}`;
+
+                // Start call timer
+                startCallTimer();
+
+                // Update call status
+                await db.collection('calls').doc(currentCall.id).update({
+                    status: 'connecting',
+                    answeredAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Get microphone permission
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                console.log('✅ Got local stream');
+
+                // Create peer connection
+                await setupWebRTC();
+
+            } catch (error) {
+                console.error('❌ Error accepting call:', error);
+                alert('Failed to accept call: ' + error.message);
+                endCall();
+            }
+        }
+
+        // ==================== Reject Call ====================
+        async function rejectCall() {
+            if (!currentCall) return;
+
+            console.log('❌ Rejecting call:', currentCall.id);
+
+            // Stop ringtone
+            document.getElementById('ringtone').pause();
+
+            // Hide incoming call UI
+            document.getElementById('incomingCall').classList.remove('show');
+
+            // Update call status
+            await db.collection('calls').doc(currentCall.id).update({
+                status: 'rejected',
+                rejectedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            currentCall = null;
+        }
+
+        // ==================== Setup WebRTC ====================
+        async function setupWebRTC() {
+            console.log('🌐 Setting up WebRTC...');
+
+            peerConnection = new RTCPeerConnection(rtcConfig);
+
+            // Add local stream
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                console.log('✅ Remote track received');
+                const remoteAudio = document.getElementById('remoteAudio');
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.play();
+            };
+
+            // Handle ICE candidates
+            peerConnection.onicecandidate = async (event) => {
+                if (event.candidate) {
+                    console.log('🧊 Sending ICE candidate');
+                    await db.collection('calls').doc(currentCall.id).update({
+                        [`receiverIceCandidates.${Date.now()}`]: JSON.stringify(event.candidate)
+                    });
+                }
+            };
+
+            // Handle connection state
+            peerConnection.onconnectionstatechange = () => {
+                console.log('🔗 Connection state:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'connected') {
+                    console.log('✅ Call connected');
+                    db.collection('calls').doc(currentCall.id).update({
+                        status: 'connected',
+                        connectedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            };
+
+            // Get caller's offer
+            const callDoc = await db.collection('calls').doc(currentCall.id).get();
+            const offer = callDoc.data().callerOffer;
+
+            if (offer) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                // Send answer to caller
+                await db.collection('calls').doc(currentCall.id).update({
+                    receiverAnswer: answer
+                });
+
+                console.log('✅ Sent answer to caller');
+
+                // Listen for caller's ICE candidates
+                listenForIceCandidates();
+            }
+        }
+
+        // ==================== Listen for ICE Candidates ====================
+        function listenForIceCandidates() {
+            db.collection('calls').doc(currentCall.id).onSnapshot((doc) => {
+                const data = doc.data();
+                if (data.callerIceCandidates) {
+                    Object.values(data.callerIceCandidates).forEach((candidateStr) => {
+                        try {
+                            const candidate = JSON.parse(candidateStr);
+                            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        } catch (e) {
+                            console.log('Ice candidate already added');
+                        }
+                    });
+                }
+            });
+        }
+
+        // ==================== Call Timer ====================
+        function startCallTimer() {
+            callStartTime = Date.now();
+            callTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('callTimer').textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        // ==================== Toggle Mute ====================
+        function toggleMute() {
+            if (!localStream) return;
+
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(track => {
+                track.enabled = !isMuted;
+            });
+
+            const muteBtn = document.getElementById('muteBtn');
+            muteBtn.textContent = isMuted ? '🔇' : '🔊';
+            console.log(isMuted ? '🔇 Muted' : '🔊 Unmuted');
+        }
+
+        // ==================== End Call ====================
+        async function endCall() {
+            console.log('📞 Ending call');
+
+            // Stop timer
+            if (callTimer) {
+                clearInterval(callTimer);
+                callTimer = null;
+            }
+
+            // Calculate duration
+            let duration = 0;
+            if (callStartTime) {
+                duration = Math.floor((Date.now() - callStartTime) / 1000);
+            }
+
+            // Close peer connection
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+
+            // Stop local stream
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            // Update call in database
+            if (currentCall) {
+                await db.collection('calls').doc(currentCall.id).update({
+                    status: 'ended',
+                    endedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    duration: duration
+                });
+            }
+
+            // Hide active call UI
+            document.getElementById('activeCall').classList.remove('show');
+
+            // Reset state
+            currentCall = null;
+            callStartTime = null;
+            isMuted = false;
+
+            // Reload history
+            loadCallHistory();
+        }
+
+        // ==================== Load Call History ====================
+        async function loadCallHistory() {
+            try {
+                const calls = await db.collection('calls')
+                    .where('receiverId', '==', currentUser.uid)
+                    .where('status', 'in', ['ended', 'rejected'])
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get();
+
+                const historyList = document.getElementById('historyList');
+
+                if (calls.empty) {
+                    historyList.innerHTML = '<p style="opacity:0.7;text-align:center;">No calls yet</p>';
+                    return;
+                }
+
+                let html = '';
+                calls.forEach((doc) => {
+                    const call = doc.data();
+                    const time = call.createdAt?.toDate().toLocaleString() || 'Unknown time';
+                    const duration = call.duration ? formatDuration(call.duration) : '--';
+                    const status = call.status === 'rejected' ? '❌' : '✅';
+
+                    html += `
+                        <div class="history-item">
+                            <div class="history-info">
+                                <div class="history-vehicle">${status} ${call.vehicleNumber || 'Unknown'}</div>
+                                <div class="history-time">${time}</div>
+                            </div>
+                            <div class="history-duration">${duration}</div>
+                        </div>
+                    `;
+                });
+
+                historyList.innerHTML = html;
+
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // ==================== Load and Answer Call (from notification) ====================
+        async function loadAndAnswerCall(callId) {
+            try {
+                const doc = await db.collection('calls').doc(callId).get();
+                if (doc.exists && doc.data().status === 'ringing') {
+                    const call = { id: doc.id, ...doc.data() };
+                    currentCall = call;
+                    await acceptCall();
+                }
+            } catch (error) {
+                console.error('Error auto-answering:', error);
+            }
+        }
+
+        // ==================== Utility Functions ====================
+        function updateStatus(status, title, subtitle) {
+            const statusIcon = document.getElementById('statusIcon');
+            const statusTitle = document.getElementById('statusTitle');
+            const statusSubtitle = document.getElementById('statusSubtitle');
+            const statusBadge = document.getElementById('statusBadge');
+
+            statusTitle.textContent = title;
+            statusSubtitle.textContent = subtitle;
+
+            statusBadge.className = 'status-badge';
+            if (status === 'online') {
+                statusIcon.textContent = '✅';
+                statusBadge.classList.add('badge-online');
+                statusBadge.textContent = 'Online';
+            } else if (status === 'offline') {
+                statusIcon.textContent = '❌';
+                statusBadge.classList.add('badge-offline');
+                statusBadge.textContent = 'Offline';
+            } else if (status === 'busy') {
+                statusIcon.textContent = '📞';
+                statusBadge.classList.add('badge-busy');
+                statusBadge.textContent = 'On Call';
+            }
+        }
+
+        function formatDuration(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function showSettings() {
+            alert('Settings feature coming soon!\n\n• Do Not Disturb\n• Call forwarding\n• Ringtone selection\n• History management');
+        }
+
+        // ==================== Initialize on Load ====================
+        initialize();
+
+        // ==================== Debug Helper ====================
+        window.debugReceiver = {
+            getUser: () => currentUser,
+            getCall: () => currentCall,
+            testNotification: async () => {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('📞 Test Call', {
+                        body: 'Vehicle: TEST123',
+                        icon: '/assets/icons/icon-192.png',
+                        badge: '/assets/icons/icon-72.png',
+                        vibrate: [200, 100, 200]
+                    });
+                } else {
+                    alert('Notifications not enabled');
+                }
+            }
+        };
+    </script>
+</body>
+</html>

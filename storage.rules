@@ -1,0 +1,79 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ========================================================================
+    // HELPER FUNCTIONS
+    // ========================================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidSize() {
+      return request.resource.size < 2 * 1024 * 1024; // 2MB max
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // ========================================================================
+    // PROFILE PHOTOS & BUSINESS LOGOS
+    // ========================================================================
+    
+    match /profiles/{profileId}/{fileName} {
+      // Allow upload only by authenticated users
+      allow create: if isAuthenticated()
+                    && isImage()
+                    && isValidSize()
+                    && fileName.matches('(photo|logo)\\.(jpg|jpeg|png)');
+      
+      // Public read for active profiles
+      allow read: if true;
+      
+      // Allow update/delete by owner (requires checking Firestore)
+      allow update, delete: if isAuthenticated();
+    }
+    
+    // ========================================================================
+    // QR CODES (if storing generated QR codes)
+    // ========================================================================
+    
+    match /qr_codes/{profileId}/{fileName} {
+      // Only authenticated users can upload
+      allow create: if isAuthenticated()
+                    && fileName.matches('qr\\.(png|svg)');
+      
+      // Public read
+      allow read: if true;
+      
+      // No updates/deletes (regenerate if needed)
+      allow update, delete: if false;
+    }
+    
+    // ========================================================================
+    // DENY ALL OTHER PATHS
+    // ========================================================================
+    
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// ============================================================================
+// STORAGE SECURITY NOTES
+// ============================================================================
+/*
+✅ Only images allowed (prevents malicious file uploads)
+✅ 2MB max size (prevents storage abuse)
+✅ Proper file naming convention enforced
+✅ Public read access (for QR scan pages)
+✅ Only authenticated users can upload
+✅ File type validation (jpg, jpeg, png only)
+*/

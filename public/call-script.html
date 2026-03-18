@@ -1,0 +1,73 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, push, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDCNYN2_n4KtEcTy48GIIjx93HVfda7xbI",
+  authDomain: "scan2reach-new.firebaseapp.com",
+  projectId: "scan2reach-new",
+  storageBucket: "scan2reach-new.firebasestorage.app",
+  messagingSenderId: "466815844554",
+  appId: "1:466815844554:web:caf16651ec18d026d8b433",
+  databaseURL: "https://scan2reach-new-default-rtdb.firebaseio.com"
+};
+
+const app = initializeApp(firebaseConfig);
+const realtimeDb = getDatabase(app);
+const firestoreDb = getFirestore(app);
+
+const urlParams = new URLSearchParams(window.location.search);
+const profileId = urlParams.get('id');
+
+async function initiateCall() {
+  console.log('Call initiated for profile:', profileId);
+  
+  if (!profileId) {
+    alert('Profile ID not found');
+    return;
+  }
+
+  try {
+    const profileRef = doc(firestoreDb, 'profiles', profileId);
+    const profileSnap = await getDoc(profileRef);
+    
+    if (!profileSnap.exists()) {
+      alert('Profile not found');
+      return;
+    }
+
+    const profileData = profileSnap.data();
+    const ownerId = profileData.userId;
+
+    if (!ownerId) {
+      alert('Owner information not found');
+      return;
+    }
+
+    const callerName = prompt('Enter your name:') || 'Anonymous';
+    const callerPhone = prompt('Enter your phone number:');
+
+    if (!callerPhone) {
+      alert('Phone number is required');
+      return;
+    }
+
+    const callsRef = ref(realtimeDb, `calls/${ownerId}`);
+    const newCallRef = push(callsRef);
+    
+    await set(newCallRef, {
+      callerName: callerName,
+      callerPhone: callerPhone,
+      profileId: profileId,
+      timestamp: Date.now()
+    });
+
+    alert('✅ Call request sent! Owner will call you back.');
+    
+  } catch (error) {
+    console.error('Error:', error);
+    alert('❌ Error: ' + error.message);
+  }
+}
+
+window.initiateCall = initiateCall;

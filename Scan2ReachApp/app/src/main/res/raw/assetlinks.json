@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.scan2reachapp",
+    "sha256_cert_fingerprints": ["75:21:28:A6:F8:B0:BE:26:AA:D4:94:91:03:3E:FD:BF:D8:47:99:D2:28:BE:F9:B9:EA:23:B9:0D:31:5E:D8:C9"]
+  }
+}]

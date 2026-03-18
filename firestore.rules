@@ -1,0 +1,318 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================================================
+    // HELPER FUNCTIONS
+    // ========================================================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns this document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user is admin (by checking admins collection)
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    
+    // Check if user is super admin
+    function isSuperAdmin() {
+      return isAdmin() && 
+             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin';
+    }
+    
+    // Check if profile belongs to user
+    function isProfileOwner() {
+      return isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Check if profile is active
+    function isProfileActive() {
+      return resource.data.subscriptionStatus == 'active';
+    }
+    
+    // ========================================================================
+    // ADMINS COLLECTION
+    // ========================================================================
+    
+    match /admins/{adminId} {
+      // Admins can read all admin docs
+      allow read: if isAdmin();
+      
+      // User can read their own admin doc
+      allow read: if isOwner(adminId);
+      
+      // FIRST ADMIN SETUP: Allow if no admins exist yet OR user creates their own
+      // This allows initial setup, then only super_admin can add more
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == adminId &&
+                       request.resource.data.uid == adminId &&
+                       request.resource.data.keys().hasAll(['uid', 'email', 'role']);
+      
+      // Only super_admin can update admin docs
+      allow update: if isSuperAdmin();
+      
+      // Only super_admin can delete (but not themselves)
+      allow delete: if isSuperAdmin() && request.auth.uid != adminId;
+    }
+    
+    // ========================================================================
+    // USERS COLLECTION
+    // ========================================================================
+    
+    match /users/{userId} {
+      // User can read their own doc, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // User can create their own doc
+      allow create: if isOwner(userId) &&
+                       request.resource.data.uid == userId;
+      
+      // User can update their own doc, admin can update any
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // Only admin can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // PROFILES COLLECTION
+    // ========================================================================
+    
+    match /profiles/{profileId} {
+      // PUBLIC: Anyone can read active profiles (for QR scanning)
+      allow read: if isProfileActive();
+      
+      // Owner can always read their own profiles
+      allow read: if isProfileOwner();
+      
+      // Admin can read all profiles
+      allow read: if isAdmin();
+      
+      // Authenticated users can create profiles
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['userId', 'productType']);
+      
+      // Owner can update their own profile
+      allow update: if isProfileOwner() &&
+                       request.resource.data.userId == resource.data.userId;
+      
+      // Admin can update any profile
+      allow update: if isAdmin();
+      
+      // Owner or admin can delete
+      allow delete: if isProfileOwner() || isAdmin();
+    }
+    
+    // ========================================================================
+    // SETTINGS COLLECTION
+    // ========================================================================
+    
+    match /settings/{documentId} {
+      // Anyone can read settings (pricing, plans, etc.)
+      allow read: if true;
+      
+      // Only admin can write
+      allow write: if isAdmin();
+    }
+    
+    // ========================================================================
+    // PAYMENTS COLLECTION
+    // ========================================================================
+    
+    match /payments/{paymentId} {
+      // User can read their own payments, admin can read all
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      // Authenticated users can create payment records
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Only admin/cloud functions can update
+      allow update: if isAdmin();
+      
+      // Only admin can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // ORDERS COLLECTION
+    // ========================================================================
+    
+    match /orders/{orderId} {
+      // User can read their own orders, admin can read all
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      // Authenticated users can create
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User can update their own, admin can update any
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      // Only admin can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // CALLS COLLECTION (Call Logs)
+    // ========================================================================
+    
+    match /calls/{callId} {
+      // Participants can read
+      allow read: if isAuthenticated() &&
+                    (resource.data.callerId == request.auth.uid ||
+                     resource.data.receiverId == request.auth.uid ||
+                     isAdmin());
+      
+      // Authenticated users can create calls
+      allow create: if isAuthenticated();
+      
+      // Participants can update (for status changes)
+      allow update: if isAuthenticated() &&
+                      (resource.data.callerId == request.auth.uid ||
+                       resource.data.receiverId == request.auth.uid ||
+                       isAdmin());
+      
+      // Admin can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // CALL REQUESTS COLLECTION (WebRTC Signaling)
+    // ========================================================================
+    
+    match /callRequests/{callId} {
+      // Participants can read
+      allow read: if isAuthenticated() &&
+                    (resource.data.callerId == request.auth.uid ||
+                     resource.data.ownerId == request.auth.uid ||
+                     isAdmin());
+      
+      // Authenticated users can create
+      allow create: if isAuthenticated() &&
+                       request.resource.data.callerId == request.auth.uid;
+      
+      // Participants can update
+      allow update: if isAuthenticated() &&
+                      (resource.data.callerId == request.auth.uid ||
+                       resource.data.ownerId == request.auth.uid);
+      
+      // Participants can delete
+      allow delete: if isAuthenticated() &&
+                      (resource.data.callerId == request.auth.uid ||
+                       resource.data.ownerId == request.auth.uid);
+      
+      // ICE Candidates subcollection
+      match /candidates/{candidateId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+    
+    // ========================================================================
+    // SCANS COLLECTION (Analytics)
+    // ========================================================================
+    
+    match /scans/{scanId} {
+      // Authenticated users can read
+      allow read: if isAuthenticated();
+      
+      // Anyone can create scan record (public QR scanning)
+      allow create: if true;
+      
+      // No updates or deletes (immutable logs)
+      allow update, delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // ADMIN LOGS COLLECTION
+    // ========================================================================
+    
+    match /admin_logs/{logId} {
+      // Only admins can read
+      allow read: if isAdmin();
+      
+      // Authenticated users can create (for logging their actions)
+      allow create: if isAuthenticated();
+      
+      // Only admin can update/delete
+      allow update, delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // FAILED PAYMENTS COLLECTION
+    // ========================================================================
+    
+    match /failed_payments/{docId} {
+      // Only admin can read
+      allow read: if isAdmin();
+      
+      // Authenticated users can create (for logging failures)
+      allow create: if isAuthenticated();
+      
+      // No updates/deletes
+      allow update, delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // WEBHOOK LOGS COLLECTION
+    // ========================================================================
+    
+    match /webhook_logs/{logId} {
+      // Only admin can read
+      allow read: if isAdmin();
+      
+      // Anyone can create (webhooks don't have auth)
+      allow create: if true;
+      
+      // No updates/deletes
+      allow update, delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // RATE LIMITS COLLECTION
+    // ========================================================================
+    
+    match /rateLimits/{limitId} {
+      // Only admin can access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================================================
+    // PRODUCTS COLLECTION (Legacy - for backwards compatibility)
+    // ========================================================================
+    
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // ========================================================================
+    // PLANS COLLECTION (Legacy - for backwards compatibility)
+    // ========================================================================
+    
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // ========================================================================
+    // FCM TOKENS (for push notifications)
+    // ========================================================================
+    
+    match /fcmTokens/{tokenId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create, update: if isAuthenticated() && 
+                               request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

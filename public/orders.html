@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders Management - Scan2Reach Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --success-bg: #d1fae5;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --warning: #f59e0b;
+            --warning-bg: #fef3c7;
+            --info: #3b82f6;
+            --info-bg: #dbeafe;
+            --purple: #8b5cf6;
+            --purple-bg: #ede9fe;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 6px 12px -2px rgba(0,0,0,0.12);
+            --shadow-lg: 0 10px 25px -3px rgba(0,0,0,0.15);
+            --shadow-xl: 0 20px 40px -6px rgba(0,0,0,0.2);
+            --radius-sm: 6px;
+            --radius: 10px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-2xl: 20px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { -webkit-font-smoothing: antialiased; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            min-height: 100vh;
+        }
+
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999; transition: opacity 0.4s ease;
+        }
+        .loading-overlay.hide { opacity: 0; pointer-events: none; }
+        .loading-spinner {
+            width: 48px; height: 48px; border: 4px solid var(--gray-200);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 1rem; font-weight: 700; color: var(--gray-600); }
+
+        .top-nav {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white; padding: 1rem 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 4px 20px rgba(102,126,234,0.3);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .nav-left { display: flex; align-items: center; gap: 1rem; }
+        .nav-logo { font-size: 1.5rem; font-weight: 900; letter-spacing: -0.5px; }
+        .nav-divider { width: 2px; height: 28px; background: rgba(255,255,255,0.3); border-radius: 2px; }
+        .nav-title { font-size: 1.1rem; font-weight: 700; opacity: 0.95; }
+        .nav-right { display: flex; align-items: center; gap: 1rem; }
+        .nav-btn {
+            background: rgba(255,255,255,0.15); color: white;
+            border: 2px solid rgba(255,255,255,0.2);
+            padding: 0.5rem 1.25rem; border-radius: var(--radius);
+            font-weight: 700; font-size: 0.875rem; cursor: pointer;
+            transition: var(--transition); text-decoration: none;
+            display: inline-flex; align-items: center; gap: 0.5rem; font-family: inherit;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.4); transform: translateY(-1px); }
+
+        .main-content { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+        .stats-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.25rem; margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white; border-radius: var(--radius-lg); padding: 1.5rem;
+            box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100);
+            display: flex; align-items: center; gap: 1rem; transition: var(--transition);
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .stat-icon {
+            width: 52px; height: 52px; border-radius: var(--radius);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; flex-shrink: 0;
+        }
+        .stat-icon.pending { background: var(--warning-bg); }
+        .stat-icon.printed { background: var(--info-bg); }
+        .stat-icon.shipped { background: var(--purple-bg); }
+        .stat-icon.delivered { background: var(--success-bg); }
+        .stat-icon.total { background: var(--gray-100); }
+        .stat-icon.revenue { background: #fce7f3; }
+        .stat-info h3 { font-size: 1.75rem; font-weight: 900; color: var(--gray-900); line-height: 1; }
+        .stat-info p { font-size: 0.85rem; color: var(--gray-500); font-weight: 600; margin-top: 0.25rem; }
+
+        .toolbar {
+            background: white; border-radius: var(--radius-lg);
+            padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm);
+            border: 1px solid var(--gray-100); margin-bottom: 1.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1rem; flex-wrap: wrap;
+        }
+        .toolbar-left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+        .search-box { position: relative; }
+        .search-box input {
+            padding: 0.625rem 1rem 0.625rem 2.5rem; border: 2px solid var(--gray-200);
+            border-radius: var(--radius); font-size: 0.9rem; font-family: inherit;
+            font-weight: 500; width: 280px; transition: var(--transition); background: var(--gray-50);
+        }
+        .search-box input:focus { outline: none; border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        .search-box::before { content: '🔍'; position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); font-size: 0.9rem; }
+        .filter-btn {
+            padding: 0.625rem 1rem; border: 2px solid var(--gray-200);
+            border-radius: var(--radius); font-size: 0.85rem; font-weight: 700;
+            cursor: pointer; transition: var(--transition); background: white;
+            color: var(--gray-600); font-family: inherit;
+        }
+        .filter-btn:hover, .filter-btn.active { border-color: var(--primary); color: var(--primary); background: rgba(102,126,234,0.05); }
+        .filter-btn.active { background: rgba(102,126,234,0.1); }
+        .toolbar-right { display: flex; align-items: center; gap: 0.75rem; }
+        .action-btn {
+            padding: 0.625rem 1.25rem; border: none; border-radius: var(--radius);
+            font-size: 0.875rem; font-weight: 700; cursor: pointer; transition: var(--transition);
+            font-family: inherit; display: inline-flex; align-items: center; gap: 0.5rem;
+        }
+        .action-btn.primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
+        .action-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(102,126,234,0.4); }
+        .action-btn.outline { background: white; color: var(--gray-600); border: 2px solid var(--gray-200); }
+        .action-btn.outline:hover { border-color: var(--gray-400); color: var(--gray-800); }
+        .action-btn.success { background: linear-gradient(135deg, var(--success), #059669); color: white; }
+
+        .orders-container {
+            background: white; border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); overflow: hidden;
+        }
+        .orders-table { width: 100%; border-collapse: collapse; }
+        .orders-table thead { background: var(--gray-50); border-bottom: 2px solid var(--gray-100); }
+        .orders-table th {
+            padding: 1rem 1.25rem; text-align: left; font-size: 0.8rem;
+            font-weight: 800; color: var(--gray-500); text-transform: uppercase;
+            letter-spacing: 0.5px; white-space: nowrap;
+        }
+        .orders-table td { padding: 1rem 1.25rem; border-bottom: 1px solid var(--gray-100); font-size: 0.9rem; vertical-align: top; }
+        .orders-table tbody tr { transition: var(--transition); }
+        .orders-table tbody tr:hover { background: rgba(102,126,234,0.02); }
+        .orders-table tbody tr:last-child td { border-bottom: none; }
+
+        .customer-info { display: flex; flex-direction: column; gap: 0.25rem; }
+        .customer-name { font-weight: 800; color: var(--gray-900); font-size: 0.95rem; }
+        .customer-email { font-size: 0.8rem; color: var(--gray-500); font-weight: 500; }
+        .customer-phone { font-size: 0.825rem; color: var(--primary); font-weight: 700; }
+
+        .address-cell { max-width: 280px; line-height: 1.5; }
+        .address-line { color: var(--gray-700); font-weight: 500; }
+        .address-city-state { color: var(--gray-500); font-size: 0.85rem; font-weight: 600; }
+        .address-pincode {
+            display: inline-block; background: var(--gray-100); color: var(--gray-700);
+            padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.8rem;
+            font-weight: 800; margin-top: 0.25rem;
+        }
+
+        .product-badge {
+            display: inline-flex; align-items: center; gap: 0.375rem;
+            padding: 0.375rem 0.75rem; border-radius: var(--radius-sm);
+            font-size: 0.8rem; font-weight: 800;
+        }
+        .product-badge.vehicle { background: #fef3c7; color: #92400e; }
+        .product-badge.card { background: #dbeafe; color: #1e40af; }
+        .product-badge.business { background: #ede9fe; color: #5b21b6; }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 0.375rem;
+            padding: 0.375rem 0.875rem; border-radius: 20px;
+            font-size: 0.8rem; font-weight: 800; white-space: nowrap;
+        }
+        .status-badge.pending { background: var(--warning-bg); color: #92400e; }
+        .status-badge.printed { background: var(--info-bg); color: #1e40af; }
+        .status-badge.shipped { background: var(--purple-bg); color: #5b21b6; }
+        .status-badge.delivered { background: var(--success-bg); color: #065f46; }
+        .status-badge.cancelled { background: var(--danger-bg); color: #991b1b; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .status-dot.pending { background: var(--warning); }
+        .status-dot.printed { background: var(--info); }
+        .status-dot.shipped { background: var(--purple); }
+        .status-dot.delivered { background: var(--success); }
+        .status-dot.cancelled { background: var(--danger); }
+
+        .date-cell { white-space: nowrap; }
+        .date-primary { font-weight: 700; color: var(--gray-700); font-size: 0.875rem; }
+        .date-secondary { font-size: 0.775rem; color: var(--gray-400); font-weight: 500; }
+        .amount-cell { font-weight: 800; color: var(--gray-900); white-space: nowrap; }
+
+        .actions-cell { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+        .btn-sm {
+            padding: 0.35rem 0.65rem; border-radius: var(--radius-sm);
+            font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: var(--transition);
+            border: none; font-family: inherit; white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 0.2rem;
+        }
+        .btn-sm.view { background: var(--info-bg); color: #1e40af; }
+        .btn-sm.view:hover { background: #bfdbfe; }
+        .btn-sm.invoice { background: #fce7f3; color: #9d174d; }
+        .btn-sm.invoice:hover { background: #fbcfe8; }
+        .btn-sm.print { background: var(--purple-bg); color: #5b21b6; }
+        .btn-sm.print:hover { background: #ddd6fe; }
+        .btn-sm.status { background: var(--success-bg); color: #065f46; }
+        .btn-sm.status:hover { background: #a7f3d0; }
+
+        .empty-state { text-align: center; padding: 4rem 2rem; }
+        .empty-state .icon { font-size: 4rem; margin-bottom: 1rem; }
+        .empty-state h3 { font-size: 1.25rem; font-weight: 800; color: var(--gray-700); margin-bottom: 0.5rem; }
+        .empty-state p { color: var(--gray-500); font-weight: 500; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease; padding: 1rem;
+        }
+        .modal-overlay.show { opacity: 1; pointer-events: all; }
+        .modal {
+            background: white; border-radius: var(--radius-xl);
+            width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+            transform: scale(0.9) translateY(20px); transition: transform 0.3s ease;
+        }
+        .modal-overlay.show .modal { transform: scale(1) translateY(0); }
+        .modal-header {
+            padding: 1.5rem 2rem; border-bottom: 2px solid var(--gray-100);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .modal-header h2 { font-size: 1.25rem; font-weight: 900; color: var(--gray-900); }
+        .modal-close {
+            width: 36px; height: 36px; border-radius: 50%; border: none;
+            background: var(--gray-100); cursor: pointer; font-size: 1.25rem;
+            display: flex; align-items: center; justify-content: center; transition: var(--transition);
+        }
+        .modal-close:hover { background: var(--danger-bg); color: var(--danger); }
+        .modal-body { padding: 2rem; }
+        .modal-footer {
+            padding: 1.25rem 2rem; border-top: 2px solid var(--gray-100);
+            display: flex; justify-content: flex-end; gap: 0.75rem;
+        }
+
+        .detail-group { margin-bottom: 1.5rem; }
+        .detail-group-title {
+            font-size: 0.8rem; font-weight: 800; color: var(--gray-400);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .detail-row {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 0.625rem 0; border-bottom: 1px solid var(--gray-100);
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { font-weight: 700; color: var(--gray-500); font-size: 0.875rem; min-width: 120px; }
+        .detail-value { font-weight: 600; color: var(--gray-900); font-size: 0.9rem; text-align: right; max-width: 60%; word-break: break-word; }
+
+        .status-select {
+            width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--gray-200);
+            border-radius: var(--radius); font-size: 0.925rem; font-weight: 700;
+            font-family: inherit; background: var(--gray-50); color: var(--gray-800);
+            cursor: pointer; transition: var(--transition);
+        }
+        .status-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        .tracking-input {
+            width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--gray-200);
+            border-radius: var(--radius); font-size: 0.925rem; font-weight: 600;
+            font-family: inherit; background: var(--gray-50); margin-top: 0.75rem; transition: var(--transition);
+        }
+        .tracking-input:focus { outline: none; border-color: var(--primary); background: white; }
+
+        .toast-container {
+            position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999;
+            display: flex; flex-direction: column; gap: 0.75rem;
+        }
+        .toast {
+            background: white; border-radius: var(--radius); padding: 1rem 1.5rem;
+            box-shadow: var(--shadow-lg); border-left: 4px solid var(--success);
+            display: flex; align-items: center; gap: 0.75rem;
+            font-weight: 700; font-size: 0.9rem; animation: toastIn 0.4s ease-out; min-width: 300px;
+        }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.info { border-left-color: var(--info); }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+
+        @media (max-width: 1200px) { .orders-container { overflow-x: auto; } .orders-table { min-width: 1000px; } }
+        @media (max-width: 768px) {
+            .main-content { padding: 1rem; } .top-nav { padding: 1rem; }
+            .nav-title, .nav-divider { display: none; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .toolbar-left, .toolbar-right { justify-content: center; }
+            .search-box input { width: 100%; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .modal-body { padding: 1.5rem; }
+        }
+        @media (max-width: 480px) { .stats-row { grid-template-columns: 1fr; } .filter-btn span.text { display: none; } }
+        @media print {
+            body { background: white; }
+            .top-nav, .toolbar, .toast-container, .modal-overlay, .actions-cell, .stats-row { display: none !important; }
+            .main-content { padding: 0; max-width: 100%; }
+            .orders-container { box-shadow: none; border: 1px solid #ddd; }
+        }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div style="text-align:center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading orders...</div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <nav class="top-nav">
+        <div class="nav-left">
+            <div class="nav-logo">📦 Scan2Reach</div>
+            <div class="nav-divider"></div>
+            <div class="nav-title">Orders, Invoices & Dispatch</div>
+        </div>
+        <div class="nav-right">
+            <a href="/admin.html" class="nav-btn">← Admin</a>
+            <a href="/dashboard.html" class="nav-btn">🏠 Dashboard</a>
+            <button class="nav-btn" onclick="loadOrders()">🔄 Refresh</button>
+        </div>
+    </nav>
+
+    <div class="main-content">
+        <div class="stats-row">
+            <div class="stat-card"><div class="stat-icon total">📊</div><div class="stat-info"><h3 id="statTotal">0</h3><p>Total Orders</p></div></div>
+            <div class="stat-card"><div class="stat-icon pending">⏳</div><div class="stat-info"><h3 id="statPending">0</h3><p>Pending</p></div></div>
+            <div class="stat-card"><div class="stat-icon printed">🖨️</div><div class="stat-info"><h3 id="statPrinted">0</h3><p>Printed</p></div></div>
+            <div class="stat-card"><div class="stat-icon shipped">🚚</div><div class="stat-info"><h3 id="statShipped">0</h3><p>Shipped</p></div></div>
+            <div class="stat-card"><div class="stat-icon delivered">✅</div><div class="stat-info"><h3 id="statDelivered">0</h3><p>Delivered</p></div></div>
+            <div class="stat-card"><div class="stat-icon revenue">💰</div><div class="stat-info"><h3 id="statRevenue">₹0</h3><p>Total Revenue</p></div></div>
+        </div>
+
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search name, phone, city, pincode..." oninput="filterOrders()">
+                </div>
+                <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+                <button class="filter-btn" onclick="setFilter('pending', this)">⏳ <span class="text">Pending</span></button>
+                <button class="filter-btn" onclick="setFilter('printed', this)">🖨️ <span class="text">Printed</span></button>
+                <button class="filter-btn" onclick="setFilter('shipped', this)">🚚 <span class="text">Shipped</span></button>
+                <button class="filter-btn" onclick="setFilter('delivered', this)">✅ <span class="text">Delivered</span></button>
+            </div>
+            <div class="toolbar-right">
+                <button class="action-btn outline" onclick="exportCSV()">📥 Export CSV</button>
+                <button class="action-btn outline" onclick="printAllInvoices()">🧾 All Invoices</button>
+                <button class="action-btn primary" onclick="window.print()">🖨️ Print Table</button>
+            </div>
+        </div>
+
+        <div class="orders-container">
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Customer</th>
+                        <th>Shipping Address</th>
+                        <th>Product</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Order Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <div class="icon">📭</div>
+                <h3>No orders found</h3>
+                <p>No matching orders for the current filter</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📋 Order Details</h2>
+                <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+            </div>
+            <div class="modal-body" id="detailModalBody"></div>
+            <div class="modal-footer">
+                <button class="action-btn outline" onclick="closeModal('detailModal')">Close</button>
+                <button class="action-btn success" id="invoiceFromDetailBtn">🧾 Invoice</button>
+                <button class="action-btn primary" id="printLabelBtn">🏷️ Label</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="modal-overlay" id="statusModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📦 Update Dispatch Status</h2>
+                <button class="modal-close" onclick="closeModal('statusModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-group">
+                    <div class="detail-group-title">👤 Customer</div>
+                    <p id="statusCustomerName" style="font-weight:800;font-size:1.1rem;color:var(--gray-900);margin-bottom:0.25rem;"></p>
+                    <p id="statusProfileId" style="font-size:0.8rem;color:var(--gray-400);font-weight:600;"></p>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-group-title">📊 Update Status</div>
+                    <select class="status-select" id="newStatusSelect">
+                        <option value="pending">⏳ Pending</option>
+                        <option value="printed">🖨️ Printed</option>
+                        <option value="shipped">🚚 Shipped</option>
+                        <option value="delivered">✅ Delivered</option>
+                        <option value="cancelled">❌ Cancelled</option>
+                    </select>
+                    <input type="text" class="tracking-input" id="trackingInput" placeholder="Tracking number / Courier (optional)">
+                    <input type="text" class="tracking-input" id="notesInput" placeholder="Admin notes (optional)" style="margin-top:0.5rem;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn outline" onclick="closeModal('statusModal')">Cancel</button>
+                <button class="action-btn primary" id="saveStatusBtn">💾 Save Status</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import {
+            getFirestore, collection, doc, getDoc, getDocs,
+            updateDoc, serverTimestamp
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let allOrders = [];
+        let filteredOrders = [];
+        let currentFilter = 'all';
+        let currentUser = null;
+        let selectedProfileId = null;
+
+        const COMPANY = {
+            name: 'Scan2Reach',
+            tagline: 'QR-Powered Digital Profiles',
+            address: 'India',
+            email: 'support@scan2reach.com',
+            website: 'scan2reach-new.web.app',
+            gstin: '',
+            pan: ''
+        };
+
+        // ==================== Escape HTML ====================
+        function esc(s) {
+            if (!s) return '';
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        // ==================== Loading ====================
+        function showLoading(t) {
+            const el = document.getElementById('loadingOverlay');
+            el.querySelector('.loading-text').textContent = t || 'Loading...';
+            el.classList.remove('hide');
+        }
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hide');
+        }
+
+        // ==================== Modal ====================
+        function openModal(id) {
+            document.getElementById(id).classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        window.closeModal = function(id) {
+            document.getElementById(id).classList.remove('show');
+            document.body.style.overflow = '';
+        };
+        document.querySelectorAll('.modal-overlay').forEach(function(o) {
+            o.addEventListener('click', function(e) {
+                if (e.target === o) { closeModal(o.id); }
+            });
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.show').forEach(function(m) {
+                    closeModal(m.id);
+                });
+            }
+        });
+
+        // ==================== Toast ====================
+        function showToast(msg, type) {
+            type = type || 'success';
+            var icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+            var c = document.getElementById('toastContainer');
+            var t = document.createElement('div');
+            t.className = 'toast ' + type;
+            t.innerHTML = '<span>' + icon + '</span><span>' + msg + '</span>';
+            c.appendChild(t);
+            setTimeout(function() {
+                t.style.opacity = '0';
+                t.style.transform = 'translateX(100px)';
+                t.style.transition = 'all 0.3s';
+                setTimeout(function() { t.remove(); }, 300);
+            }, 4000);
+        }
+
+        // ==================== Auth ====================
+        onAuthStateChanged(auth, async function(user) {
+            if (!user) { alert('Please login'); window.location.href = '/login.html'; return; }
+            currentUser = user;
+            try {
+                var adminDoc = await getDoc(doc(db, 'admins', user.uid));
+                if (!adminDoc.exists()) { alert('Admin only'); window.location.href = '/dashboard.html'; return; }
+                console.log('Admin:', user.email);
+                await loadOrders();
+            } catch (err) {
+                console.error(err);
+                alert('Admin check failed');
+                window.location.href = '/dashboard.html';
+            }
+        });
+
+        // ==================== Load Orders ====================
+        window.loadOrders = async function() {
+            showLoading('Loading orders...');
+            try {
+                var snapshot = await getDocs(collection(db, 'profiles'));
+                allOrders = [];
+                snapshot.forEach(function(docSnap) {
+                    var data = docSnap.data();
+                    if (data.shippingAddress && data.shippingAddress.fullName) {
+                        allOrders.push(Object.assign({ profileId: docSnap.id }, data));
+                    }
+                });
+                allOrders.sort(function(a, b) {
+                    var dA = (a.shippingAddress && a.shippingAddress.addedAt && a.shippingAddress.addedAt.seconds) || (a.addressUpdatedAt && a.addressUpdatedAt.seconds) || 0;
+                    var dB = (b.shippingAddress && b.shippingAddress.addedAt && b.shippingAddress.addedAt.seconds) || (b.addressUpdatedAt && b.addressUpdatedAt.seconds) || 0;
+                    return dB - dA;
+                });
+                console.log(allOrders.length + ' orders loaded');
+                updateStats();
+                filterOrders();
+                hideLoading();
+            } catch (error) {
+                console.error(error);
+                hideLoading();
+                showToast('Error: ' + error.message, 'error');
+            }
+        };
+
+        // ==================== Stats ====================
+        function updateStats() {
+            var c = { total: 0, pending: 0, printed: 0, shipped: 0, delivered: 0, revenue: 0 };
+            allOrders.forEach(function(o) {
+                c.total++;
+                var s = (o.cardDispatchStatus || 'pending').toLowerCase();
+                if (c[s] !== undefined) { c[s]++; } else { c.pending++; }
+                c.revenue += Number(o.paidAmount || o.amount || o.baseAmount || 0);
+            });
+            document.getElementById('statTotal').textContent = c.total;
+            document.getElementById('statPending').textContent = c.pending;
+            document.getElementById('statPrinted').textContent = c.printed;
+            document.getElementById('statShipped').textContent = c.shipped;
+            document.getElementById('statDelivered').textContent = c.delivered;
+            document.getElementById('statRevenue').textContent = '₹' + c.revenue.toLocaleString('en-IN');
+        }
+
+        // ==================== Filter ====================
+        window.filterOrders = function() {
+            var q = document.getElementById('searchInput').value.toLowerCase().trim();
+            filteredOrders = allOrders.filter(function(order) {
+                var s = (order.cardDispatchStatus || 'pending').toLowerCase();
+                if (currentFilter !== 'all' && s !== currentFilter) return false;
+                if (q) {
+                    var addr = order.shippingAddress || {};
+                    var hay = [addr.fullName, addr.phone, addr.address1, addr.address2, addr.city, addr.state, addr.pincode, order.userEmail, order.profileId, order.productType].filter(Boolean).join(' ').toLowerCase();
+                    if (hay.indexOf(q) === -1) return false;
+                }
+                return true;
+            });
+            renderOrders();
+        };
+
+        window.setFilter = function(f, btn) {
+            currentFilter = f;
+            document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            filterOrders();
+        };
+
+        // ==================== Render ====================
+        function renderOrders() {
+            var tbody = document.getElementById('ordersBody');
+            var empty = document.getElementById('emptyState');
+            if (!filteredOrders.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+            empty.style.display = 'none';
+
+            var html = '';
+            var sLabels = { pending: 'Pending', printed: 'Printed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled' };
+
+            filteredOrders.forEach(function(order, i) {
+                var addr = order.shippingAddress || {};
+                var status = (order.cardDispatchStatus || 'pending').toLowerCase();
+                var dateStr = '—';
+                var timeStr = '';
+                var ts = (addr.addedAt) || order.addressUpdatedAt || order.createdAt;
+                if (ts && ts.seconds) {
+                    var d = new Date(ts.seconds * 1000);
+                    dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                    timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                }
+                var pType = (order.productType || 'vehicle').toLowerCase();
+                var pLabel = order.productType || 'Vehicle';
+                var pIcon = '🚗';
+                if (pType.indexOf('card') !== -1) { pIcon = '💳'; pLabel = 'Card'; }
+                else if (pType.indexOf('business') !== -1) { pIcon = '🏢'; pLabel = 'Business'; }
+                else if (pType.indexOf('elite') !== -1 || pType.indexOf('pro') !== -1) { pIcon = '🚙'; pLabel = 'Vehicle Pro'; }
+                var pClass = pType.indexOf('card') !== -1 ? 'card' : pType.indexOf('business') !== -1 ? 'business' : 'vehicle';
+                var amt = order.paidAmount || order.amount || order.baseAmount || '—';
+
+                html += '<tr>';
+                html += '<td style="font-weight:800;color:var(--gray-400);font-size:0.85rem;">' + (i + 1) + '</td>';
+                html += '<td><div class="customer-info">';
+                html += '<div class="customer-name">' + esc(addr.fullName || '—') + '</div>';
+                html += '<div class="customer-phone">📱 ' + esc(addr.phone || '—') + '</div>';
+                html += '<div class="customer-email">' + esc(order.userEmail || '—') + '</div>';
+                html += '</div></td>';
+                html += '<td><div class="address-cell">';
+                html += '<div class="address-line">' + esc(addr.address1 || '') + '</div>';
+                if (addr.address2) { html += '<div class="address-line">' + esc(addr.address2) + '</div>'; }
+                html += '<div class="address-city-state">' + esc(addr.city || '') + (addr.state ? ', ' + esc(addr.state) : '') + '</div>';
+                if (addr.pincode) { html += '<span class="address-pincode">📮 ' + esc(addr.pincode) + '</span>'; }
+                html += '</div></td>';
+                html += '<td><span class="product-badge ' + pClass + '">' + pIcon + ' ' + esc(pLabel) + '</span></td>';
+                html += '<td class="amount-cell">₹' + amt + '</td>';
+                html += '<td><span class="status-badge ' + status + '"><span class="status-dot ' + status + '"></span>' + (sLabels[status] || 'Pending') + '</span></td>';
+                html += '<td><div class="date-cell"><div class="date-primary">' + dateStr + '</div><div class="date-secondary">' + timeStr + '</div></div></td>';
+                html += '<td><div class="actions-cell">';
+                html += '<button class="btn-sm view" onclick="viewOrder(\'' + order.profileId + '\')">👁️ View</button>';
+                html += '<button class="btn-sm invoice" onclick="printInvoice(\'' + order.profileId + '\')">🧾 Invoice</button>';
+                html += '<button class="btn-sm status" onclick="updateStatus(\'' + order.profileId + '\')">📦 Status</button>';
+                html += '<button class="btn-sm print" onclick="printLabel(\'' + order.profileId + '\')">🏷️ Label</button>';
+                html += '</div></td>';
+                html += '</tr>';
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // ==================== View Order ====================
+        window.viewOrder = function(pid) {
+            var order = allOrders.find(function(o) { return o.profileId === pid; });
+            if (!order) return;
+            var addr = order.shippingAddress || {};
+            var status = (order.cardDispatchStatus || 'pending').toLowerCase();
+            var sL = { pending: 'Pending', printed: 'Printed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled' };
+            var dateStr = '—';
+            var ts = addr.addedAt || order.addressUpdatedAt || order.createdAt;
+            if (ts && ts.seconds) { dateStr = new Date(ts.seconds * 1000).toLocaleString('en-IN'); }
+            var paidDate = '—';
+            if (order.paidAt && order.paidAt.seconds) { paidDate = new Date(order.paidAt.seconds * 1000).toLocaleString('en-IN'); }
+
+            var h = '';
+            h += '<div class="detail-group"><div class="detail-group-title">👤 Customer</div>';
+            h += '<div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">' + esc(addr.fullName) + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">Phone</span><span class="detail-value" style="color:var(--primary);">' + esc(addr.phone) + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">Email</span><span class="detail-value">' + esc(order.userEmail || order.email || '—') + '</span></div>';
+            h += '</div>';
+
+            h += '<div class="detail-group"><div class="detail-group-title">📍 Shipping Address</div>';
+            h += '<div class="detail-row"><span class="detail-label">Address 1</span><span class="detail-value">' + esc(addr.address1) + '</span></div>';
+            if (addr.address2) { h += '<div class="detail-row"><span class="detail-label">Address 2</span><span class="detail-value">' + esc(addr.address2) + '</span></div>'; }
+            h += '<div class="detail-row"><span class="detail-label">City</span><span class="detail-value">' + esc(addr.city) + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">State</span><span class="detail-value">' + esc(addr.state) + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">PIN Code</span><span class="detail-value" style="font-weight:900;">' + esc(addr.pincode) + '</span></div>';
+            h += '</div>';
+
+            h += '<div class="detail-group"><div class="detail-group-title">📦 Order Info</div>';
+            h += '<div class="detail-row"><span class="detail-label">Profile ID</span><span class="detail-value" style="font-size:0.75rem;color:var(--gray-400);">' + pid + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">Product</span><span class="detail-value">' + esc(order.productType || 'Vehicle') + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">Amount Paid</span><span class="detail-value" style="font-weight:900;color:var(--success);">₹' + (order.paidAmount || order.amount || '—') + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">Payment ID</span><span class="detail-value" style="font-size:0.8rem;">' + esc(order.paymentId || '—') + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">Paid On</span><span class="detail-value">' + paidDate + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">Address Added</span><span class="detail-value">' + dateStr + '</span></div>';
+            h += '<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="status-badge ' + status + '"><span class="status-dot ' + status + '"></span>' + (sL[status] || 'Pending') + '</span></span></div>';
+            if (order.trackingNumber) { h += '<div class="detail-row"><span class="detail-label">Tracking</span><span class="detail-value">' + esc(order.trackingNumber) + '</span></div>'; }
+            h += '</div>';
+
+            if (order.vehicleNumber) {
+                h += '<div class="detail-group"><div class="detail-group-title">🚗 Card Details</div>';
+                h += '<div class="detail-row"><span class="detail-label">Vehicle No.</span><span class="detail-value" style="font-weight:900;font-size:1.1rem;">' + esc(order.vehicleNumber) + '</span></div>';
+                if (order.ownerName) { h += '<div class="detail-row"><span class="detail-label">Owner</span><span class="detail-value">' + esc(order.ownerName) + '</span></div>'; }
+                h += '<div class="detail-row"><span class="detail-label">QR Link</span><span class="detail-value" style="font-size:0.75rem;"><a href="https://scan2reach-new.web.app/view.html?id=' + pid + '" target="_blank" style="color:var(--primary);">Open Profile</a></span></div>';
+                h += '</div>';
+            }
+
+            document.getElementById('detailModalBody').innerHTML = h;
+            document.getElementById('invoiceFromDetailBtn').onclick = function() { closeModal('detailModal'); printInvoice(pid); };
+            document.getElementById('printLabelBtn').onclick = function() { printLabel(pid); };
+            openModal('detailModal');
+        };
+
+        // ==================== INVOICE ====================
+        window.printInvoice = function(pid) {
+            var order = allOrders.find(function(o) { return o.profileId === pid; });
+            if (!order) return;
+
+            var addr = order.shippingAddress || {};
+            var baseAmount = Number(order.baseAmount || order.amount || 0);
+            var gstAmount = Number(order.gstAmount || 0);
+            var totalPaid = Number(order.paidAmount || baseAmount + gstAmount || 0);
+            var gstRate = gstAmount > 0 ? Math.round((gstAmount / baseAmount) * 100) : 18;
+            var computedGST = gstAmount > 0 ? gstAmount : Math.round(baseAmount * 0.18);
+            var computedTotal = gstAmount > 0 ? totalPaid : baseAmount + computedGST;
+
+            var invoiceDate = new Date();
+            var ts = order.paidAt || order.createdAt;
+            if (ts && ts.seconds) { invoiceDate = new Date(ts.seconds * 1000); }
+            var invNum = 'S2R-' + invoiceDate.getFullYear() + String(invoiceDate.getMonth() + 1).padStart(2, '0') + '-' + pid.substring(0, 6).toUpperCase();
+
+            var pType = (order.productType || 'vehicle').toLowerCase();
+            var productName = 'Vehicle QR Code';
+            if (pType.indexOf('card') !== -1) { productName = 'Digital Business Card'; }
+            else if (pType.indexOf('business') !== -1) { productName = 'Business QR Profile'; }
+            else if (pType.indexOf('elite') !== -1 || pType.indexOf('pro') !== -1) { productName = 'Vehicle QR Pro + Physical Card'; }
+
+            var isPhysical = (pType.indexOf('elite') !== -1 || pType.indexOf('pro') !== -1);
+            var paidDateStr = (order.paidAt && order.paidAt.seconds) ? new Date(order.paidAt.seconds * 1000).toLocaleDateString('en-IN') : '—';
+            var invoiceDateStr = invoiceDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+
+            var invoiceHTML = buildInvoiceHTML({
+                invNum: invNum,
+                invoiceDateStr: invoiceDateStr,
+                addr: addr,
+                order: order,
+                productName: productName,
+                baseAmount: baseAmount,
+                gstRate: gstRate,
+                computedGST: computedGST,
+                computedTotal: computedTotal,
+                totalPaid: totalPaid,
+                paidDateStr: paidDateStr,
+                isPhysical: isPhysical,
+                pid: pid
+            });
+
+            var invoiceWindow = window.open('', '_blank', 'width=800,height=1000');
+            invoiceWindow.document.write(invoiceHTML);
+            invoiceWindow.document.close();
+        };
+
+        function buildInvoiceHTML(d) {
+            var html = '';
+            html += '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">';
+            html += '<title>Invoice ' + esc(d.invNum) + ' - Scan2Reach<\/title>';
+            html += '<style>';
+            html += '@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap");';
+            html += '*{margin:0;padding:0;box-sizing:border-box}';
+            html += 'body{font-family:"Plus Jakarta Sans",-apple-system,sans-serif;background:#f3f4f6;padding:2rem;color:#1f2937}';
+            html += '.inv-wrap{max-width:800px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden;position:relative}';
+            html += '.watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:5rem;font-weight:900;color:rgba(16,185,129,0.07);letter-spacing:10px;text-transform:uppercase;pointer-events:none;white-space:nowrap;z-index:0}';
+            html += '.inv-header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:2.5rem 3rem;display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1}';
+            html += '.inv-brand h1{font-size:2rem;font-weight:900;letter-spacing:-0.5px;margin-bottom:0.25rem}';
+            html += '.inv-brand p{opacity:0.85;font-size:0.9rem;font-weight:500}';
+            html += '.inv-title{text-align:right}';
+            html += '.inv-title h2{font-size:2.5rem;font-weight:900;letter-spacing:2px;text-transform:uppercase;opacity:0.95}';
+            html += '.inv-title .inv-num{font-size:1rem;font-weight:700;opacity:0.9;margin-top:0.25rem}';
+            html += '.inv-title .inv-date{font-size:0.85rem;opacity:0.8;margin-top:0.125rem}';
+            html += '.inv-body{padding:2.5rem 3rem;position:relative;z-index:1}';
+            html += '.addr-row{display:grid;grid-template-columns:1fr 1fr;gap:3rem;margin-bottom:2.5rem}';
+            html += '.addr-block .lbl{font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#667eea;margin-bottom:0.75rem}';
+            html += '.addr-block .nm{font-size:1.15rem;font-weight:900;color:#111827;margin-bottom:0.25rem}';
+            html += '.addr-block .dtl{font-size:0.9rem;color:#4b5563;line-height:1.7;font-weight:500}';
+            html += '.addr-block .dtl strong{color:#1f2937;font-weight:700}';
+            html += '.divider{height:2px;background:linear-gradient(90deg,#667eea,#764ba2,#667eea);border-radius:2px;margin:0.5rem 0 2rem;opacity:0.3}';
+            html += '.items-tbl{width:100%;border-collapse:collapse;margin-bottom:2rem}';
+            html += '.items-tbl thead th{background:#f9fafb;padding:1rem 1.25rem;text-align:left;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb}';
+            html += '.items-tbl thead th:nth-child(n+3){text-align:right}';
+            html += '.items-tbl tbody td{padding:1.25rem;border-bottom:1px solid #f3f4f6;font-size:0.925rem}';
+            html += '.items-tbl tbody td:nth-child(n+3){text-align:right}';
+            html += '.it-name{font-weight:800;color:#111827;margin-bottom:0.25rem}';
+            html += '.it-desc{font-size:0.8rem;color:#9ca3af;font-weight:500}';
+            html += '.it-hsn{font-size:0.75rem;color:#9ca3af;font-weight:600;margin-top:0.125rem}';
+            html += '.totals-sec{display:flex;justify-content:flex-end;margin-bottom:2.5rem}';
+            html += '.totals-box{width:320px}';
+            html += '.tot-row{display:flex;justify-content:space-between;padding:0.625rem 0;font-size:0.925rem;border-bottom:1px solid #f3f4f6}';
+            html += '.tot-row .tl{color:#6b7280;font-weight:600}.tot-row .tv{font-weight:700;color:#374151}';
+            html += '.tot-row.grand{border-bottom:none;border-top:3px solid #111827;margin-top:0.5rem;padding-top:1rem}';
+            html += '.tot-row.grand .tl{font-size:1.1rem;font-weight:900;color:#111827}';
+            html += '.tot-row.grand .tv{font-size:1.25rem;font-weight:900;color:#667eea}';
+            html += '.tot-row.paid{background:#d1fae5;margin:0.5rem -0.75rem 0;padding:0.75rem;border-radius:8px;border-bottom:none}';
+            html += '.tot-row.paid .tl{color:#065f46;font-weight:800}.tot-row.paid .tv{color:#065f46;font-weight:900}';
+            html += '.pay-info{background:#f9fafb;border-radius:10px;padding:1.5rem;margin-bottom:2rem}';
+            html += '.pay-info h4{font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#667eea;margin-bottom:0.75rem}';
+            html += '.pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem}';
+            html += '.pay-item{display:flex;justify-content:space-between;font-size:0.85rem}';
+            html += '.pay-item .pl{color:#6b7280;font-weight:600}.pay-item .pv{color:#1f2937;font-weight:700}';
+            html += '.inv-footer{background:#f9fafb;padding:2rem 3rem;border-top:2px solid #e5e7eb}';
+            html += '.foot-notes h4{font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#667eea;margin-bottom:0.5rem}';
+            html += '.foot-notes ul{list-style:none;font-size:0.825rem;color:#6b7280;font-weight:500;line-height:1.8;margin-bottom:1.5rem}';
+            html += '.foot-notes ul li::before{content:"• ";color:#667eea;font-weight:900}';
+            html += '.foot-bottom{text-align:center;padding-top:1rem;border-top:1px solid #e5e7eb}';
+            html += '.foot-bottom .ty{font-size:1rem;font-weight:800;color:#667eea;margin-bottom:0.5rem}';
+            html += '.foot-bottom p{font-size:0.8rem;color:#9ca3af;font-weight:500}';
+            html += '.print-actions{max-width:800px;margin:1.5rem auto 0;display:flex;gap:1rem;justify-content:center}';
+            html += '.pbtn{padding:0.875rem 2rem;border:none;border-radius:10px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.3s;display:inline-flex;align-items:center;gap:0.5rem}';
+            html += '.pbtn.pri{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;box-shadow:0 4px 15px rgba(102,126,234,0.4)}';
+            html += '.pbtn.pri:hover{transform:translateY(-2px)}';
+            html += '.pbtn.sec{background:#fff;color:#374151;border:2px solid #d1d5db}';
+            html += '.pbtn.sec:hover{border-color:#667eea;color:#667eea}';
+            html += '@media print{body{background:#fff;padding:0}.inv-wrap{box-shadow:none;border-radius:0}.print-actions{display:none!important}';
+            html += '.inv-header,.items-tbl thead th,.tot-row.paid{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}';
+            html += '<\/style><\/head><body>';
+
+            // Invoice wrapper
+            html += '<div class="inv-wrap">';
+            html += '<div class="watermark">PAID<\/div>';
+
+            // Header
+            html += '<div class="inv-header">';
+            html += '<div class="inv-brand"><h1>📱 ' + esc(COMPANY.name) + '<\/h1>';
+            html += '<p>' + esc(COMPANY.tagline) + '<\/p>';
+            html += '<p style="margin-top:0.5rem;font-size:0.8rem;opacity:0.7;">' + esc(COMPANY.website) + '<\/p><\/div>';
+            html += '<div class="inv-title"><h2>INVOICE<\/h2>';
+            html += '<div class="inv-num">' + esc(d.invNum) + '<\/div>';
+            html += '<div class="inv-date">Date: ' + esc(d.invoiceDateStr) + '<\/div><\/div>';
+            html += '<\/div>';
+
+            // Body
+            html += '<div class="inv-body">';
+
+            // Addresses
+            html += '<div class="addr-row">';
+            html += '<div class="addr-block"><div class="lbl">From<\/div>';
+            html += '<div class="nm">' + esc(COMPANY.name) + '<\/div>';
+            html += '<div class="dtl">';
+            if (COMPANY.email) { html += esc(COMPANY.email) + '<br>'; }
+            if (COMPANY.website) { html += esc(COMPANY.website) + '<br>'; }
+            if (COMPANY.address) { html += esc(COMPANY.address) + '<br>'; }
+            if (COMPANY.gstin) { html += '<strong>GSTIN:<\/strong> ' + esc(COMPANY.gstin) + '<br>'; }
+            if (COMPANY.pan) { html += '<strong>PAN:<\/strong> ' + esc(COMPANY.pan); }
+            html += '<\/div><\/div>';
+
+            html += '<div class="addr-block"><div class="lbl">Bill To / Ship To<\/div>';
+            html += '<div class="nm">' + esc(d.addr.fullName || '—') + '<\/div>';
+            html += '<div class="dtl">';
+            html += esc(d.addr.address1 || '') + '<br>';
+            if (d.addr.address2) { html += esc(d.addr.address2) + '<br>'; }
+            html += esc(d.addr.city || '') + (d.addr.state ? ', ' + esc(d.addr.state) : '') + '<br>';
+            html += '<strong>PIN:<\/strong> ' + esc(d.addr.pincode || '—') + '<br>';
+            html += '<strong>Phone:<\/strong> ' + esc(d.addr.phone || '—') + '<br>';
+            if (d.order.userEmail) { html += '<strong>Email:<\/strong> ' + esc(d.order.userEmail); }
+            html += '<\/div><\/div>';
+            html += '<\/div>';
+
+            html += '<div class="divider"><\/div>';
+
+            // Items table
+            html += '<table class="items-tbl"><thead><tr>';
+            html += '<th style="width:50%">Item Description<\/th><th>Qty<\/th><th>Rate<\/th><th>Amount<\/th>';
+            html += '<\/tr><\/thead><tbody>';
+
+            html += '<tr><td>';
+            html += '<div class="it-name">' + esc(d.productName) + '<\/div>';
+            html += '<div class="it-desc">Digital QR profile + ';
+            html += d.isPhysical ? 'Physical QR Card with free delivery' : 'Digital QR code access';
+            html += '<\/div>';
+            html += '<div class="it-desc">Profile ID: ' + esc(d.pid.substring(0, 12)) + '...<\/div>';
+            if (d.order.vehicleNumber) { html += '<div class="it-desc">Vehicle: ' + esc(d.order.vehicleNumber) + '<\/div>'; }
+            html += '<div class="it-hsn">HSN/SAC: 998439<\/div>';
+            html += '<\/td>';
+            html += '<td style="text-align:right">1<\/td>';
+            html += '<td style="text-align:right">₹' + d.baseAmount.toLocaleString('en-IN') + '<\/td>';
+            html += '<td style="text-align:right;font-weight:700">₹' + d.baseAmount.toLocaleString('en-IN') + '<\/td>';
+            html += '<\/tr>';
+
+            if (d.isPhysical) {
+                html += '<tr><td><div class="it-name">Physical QR Card<\/div>';
+                html += '<div class="it-desc">Waterproof laminated card (85mm × 54mm)<\/div><\/td>';
+                html += '<td style="text-align:right">1<\/td>';
+                html += '<td style="text-align:right;color:#10b981">FREE<\/td>';
+                html += '<td style="text-align:right;font-weight:700;color:#10b981">₹0<\/td><\/tr>';
+
+                html += '<tr><td><div class="it-name">Home Delivery<\/div>';
+                html += '<div class="it-desc">Free shipping across India<\/div><\/td>';
+                html += '<td style="text-align:right">1<\/td>';
+                html += '<td style="text-align:right;color:#10b981">FREE<\/td>';
+                html += '<td style="text-align:right;font-weight:700;color:#10b981">₹0<\/td><\/tr>';
+            }
+
+            html += '<\/tbody><\/table>';
+
+            // Totals
+            html += '<div class="totals-sec"><div class="totals-box">';
+            html += '<div class="tot-row"><span class="tl">Subtotal<\/span><span class="tv">₹' + d.baseAmount.toLocaleString('en-IN') + '<\/span><\/div>';
+            html += '<div class="tot-row"><span class="tl">CGST (' + (d.gstRate / 2) + '%)<\/span><span class="tv">₹' + (d.computedGST / 2).toLocaleString('en-IN') + '<\/span><\/div>';
+            html += '<div class="tot-row"><span class="tl">SGST (' + (d.gstRate / 2) + '%)<\/span><span class="tv">₹' + (d.computedGST / 2).toLocaleString('en-IN') + '<\/span><\/div>';
+            html += '<div class="tot-row"><span class="tl">Shipping<\/span><span class="tv" style="color:#10b981">FREE<\/span><\/div>';
+            html += '<div class="tot-row grand"><span class="tl">Grand Total<\/span><span class="tv">₹' + d.computedTotal.toLocaleString('en-IN') + '<\/span><\/div>';
+            html += '<div class="tot-row paid"><span class="tl">✅ Amount Paid<\/span><span class="tv">₹' + d.totalPaid.toLocaleString('en-IN') + '<\/span><\/div>';
+            html += '<\/div><\/div>';
+
+            // Payment info
+            html += '<div class="pay-info"><h4>Payment Details<\/h4>';
+            html += '<div class="pay-grid">';
+            html += '<div class="pay-item"><span class="pl">Method<\/span><span class="pv">' + esc(d.order.paymentMethod || 'Razorpay') + '<\/span><\/div>';
+            html += '<div class="pay-item"><span class="pl">Status<\/span><span class="pv" style="color:#10b981">✅ ' + esc(d.order.status || 'Paid') + '<\/span><\/div>';
+            html += '<div class="pay-item"><span class="pl">Payment ID<\/span><span class="pv">' + esc(d.order.paymentId || '—') + '<\/span><\/div>';
+            html += '<div class="pay-item"><span class="pl">Order ID<\/span><span class="pv">' + esc(d.order.orderId || '—') + '<\/span><\/div>';
+            html += '<div class="pay-item"><span class="pl">Paid On<\/span><span class="pv">' + esc(d.paidDateStr) + '<\/span><\/div>';
+            html += '<div class="pay-item"><span class="pl">Dispatch<\/span><span class="pv">' + esc(d.order.cardDispatchStatus || 'Pending') + '<\/span><\/div>';
+            html += '<\/div><\/div>';
+
+            html += '<\/div>'; // end inv-body
+
+            // Footer
+            html += '<div class="inv-footer"><div class="foot-notes">';
+            html += '<h4>Terms & Conditions<\/h4><ul>';
+            html += '<li>Computer-generated invoice. No signature required.<\/li>';
+            html += '<li>QR profile valid for 1 year from purchase.<\/li>';
+            html += '<li>Physical card delivered within 7-10 business days.<\/li>';
+            html += '<li>Support: ' + esc(COMPANY.email) + '<\/li>';
+            html += '<li>No refund after QR profile activation.<\/li>';
+            html += '<\/ul><\/div>';
+            html += '<div class="foot-bottom">';
+            html += '<p class="ty">Thank you for choosing Scan2Reach! 🙏<\/p>';
+            html += '<p>' + esc(COMPANY.website) + ' &bull; ' + esc(COMPANY.email) + '<\/p>';
+            html += '<\/div><\/div>';
+
+            html += '<\/div>'; // end inv-wrap
+
+            // Print buttons
+            html += '<div class="print-actions">';
+            html += '<button class="pbtn pri" onclick="window.print()">🖨️ Print Invoice<\/button>';
+            html += '<button class="pbtn sec" onclick="alert(\'Click Print Invoice then select Save as PDF as printer\')">📥 Save as PDF<\/button>';
+            html += '<button class="pbtn sec" onclick="window.close()">✕ Close<\/button>';
+            html += '<\/div>';
+
+            html += '<\/body><\/html>';
+            return html;
+        }
+
+        // ==================== Print All Invoices ====================
+        window.printAllInvoices = function() {
+            if (!filteredOrders.length) { showToast('No orders', 'error'); return; }
+            if (filteredOrders.length > 10) {
+                if (!confirm('This will open ' + filteredOrders.length + ' invoice windows. Continue?')) return;
+            }
+            filteredOrders.forEach(function(order, i) {
+                setTimeout(function() { printInvoice(order.profileId); }, i * 500);
+            });
+        };
+
+        // ==================== Update Status ====================
+        window.updateStatus = function(pid) {
+            selectedProfileId = pid;
+            var order = allOrders.find(function(o) { return o.profileId === pid; });
+            if (!order) return;
+            var addr = order.shippingAddress || {};
+            document.getElementById('statusCustomerName').textContent = addr.fullName || 'Unknown';
+            document.getElementById('statusProfileId').textContent = 'Profile: ' + pid;
+            document.getElementById('newStatusSelect').value = order.cardDispatchStatus || 'pending';
+            document.getElementById('trackingInput').value = order.trackingNumber || '';
+            document.getElementById('notesInput').value = order.dispatchNotes || '';
+            openModal('statusModal');
+        };
+
+        document.getElementById('saveStatusBtn').addEventListener('click', async function() {
+            if (!selectedProfileId) return;
+            var newStatus = document.getElementById('newStatusSelect').value;
+            var tracking = document.getElementById('trackingInput').value.trim();
+            var notes = document.getElementById('notesInput').value.trim();
+            var btn = document.getElementById('saveStatusBtn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Saving...';
+            try {
+                var data = {
+                    cardDispatchStatus: newStatus,
+                    dispatchUpdatedAt: serverTimestamp(),
+                    dispatchUpdatedBy: currentUser.uid
+                };
+                if (tracking) { data.trackingNumber = tracking; }
+                if (notes) { data.dispatchNotes = notes; }
+                if (newStatus === 'printed') { data.cardPrintedAt = serverTimestamp(); }
+                if (newStatus === 'shipped') { data.cardShippedAt = serverTimestamp(); }
+                if (newStatus === 'delivered') { data.cardDeliveredAt = serverTimestamp(); }
+                await updateDoc(doc(db, 'profiles', selectedProfileId), data);
+                var idx = allOrders.findIndex(function(o) { return o.profileId === selectedProfileId; });
+                if (idx !== -1) {
+                    allOrders[idx].cardDispatchStatus = newStatus;
+                    allOrders[idx].trackingNumber = tracking;
+                    allOrders[idx].dispatchNotes = notes;
+                }
+                updateStats();
+                filterOrders();
+                closeModal('statusModal');
+                showToast('Status updated to "' + newStatus + '" ✅');
+            } catch (err) {
+                console.error(err);
+                showToast('Error: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '💾 Save Status';
+            }
+        });
+
+        // ==================== Print Label ====================
+        window.printLabel = function(pid) {
+            var order = allOrders.find(function(o) { return o.profileId === pid; });
+            if (!order) return;
+            var addr = order.shippingAddress || {};
+            var labelHTML = '';
+            labelHTML += '<!DOCTYPE html><html><head><title>Label - ' + esc(addr.fullName) + '<\/title>';
+            labelHTML += '<style>';
+            labelHTML += '@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap");';
+            labelHTML += '*{margin:0;padding:0;box-sizing:border-box}body{font-family:"Plus Jakarta Sans",sans-serif;padding:2rem}';
+            labelHTML += '.label{border:3px solid #000;border-radius:12px;padding:2rem;max-width:400px;margin:0 auto}';
+            labelHTML += '.label-header{text-align:center;border-bottom:2px dashed #999;padding-bottom:1rem;margin-bottom:1.5rem}';
+            labelHTML += '.label-header h1{font-size:1.25rem;font-weight:900}';
+            labelHTML += '.label-header p{font-size:0.8rem;color:#666;margin-top:0.25rem}';
+            labelHTML += '.label-section{margin-bottom:1.5rem}';
+            labelHTML += '.label-section h3{font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:0.5rem;font-weight:800}';
+            labelHTML += '.to-name{font-size:1.3rem;font-weight:900;margin-bottom:0.25rem}';
+            labelHTML += '.to-address{font-size:1rem;line-height:1.6;font-weight:600}';
+            labelHTML += '.to-pincode{font-size:1.5rem;font-weight:900;margin-top:0.5rem;background:#000;color:#fff;display:inline-block;padding:0.25rem 1rem;border-radius:6px}';
+            labelHTML += '.to-phone{font-size:1.1rem;font-weight:800;margin-top:0.5rem}';
+            labelHTML += '.from-section{border-top:2px dashed #999;padding-top:1rem;font-size:0.85rem;color:#555}';
+            labelHTML += '.from-section strong{color:#000}';
+            labelHTML += '.product-info{text-align:center;border-top:2px dashed #999;padding-top:1rem;margin-top:1rem;font-size:0.8rem;color:#888}';
+            labelHTML += '.product-info strong{color:#333}';
+            labelHTML += '.print-btn{display:block;margin:2rem auto 0;padding:0.75rem 2rem;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit}';
+            labelHTML += '@media print{.print-btn{display:none}body{padding:0}}';
+            labelHTML += '<\/style><\/head><body>';
+            labelHTML += '<div class="label">';
+            labelHTML += '<div class="label-header"><h1>📦 SCAN2REACH<\/h1><p>QR Card Delivery<\/p><\/div>';
+            labelHTML += '<div class="label-section"><h3>Deliver To<\/h3>';
+            labelHTML += '<div class="to-name">' + esc(addr.fullName) + '<\/div>';
+            labelHTML += '<div class="to-address">' + esc(addr.address1) + '<br>';
+            if (addr.address2) { labelHTML += esc(addr.address2) + '<br>'; }
+            labelHTML += esc(addr.city) + (addr.state ? ', ' + esc(addr.state) : '') + '<\/div>';
+            labelHTML += '<div class="to-pincode">' + esc(addr.pincode) + '<\/div>';
+            labelHTML += '<div class="to-phone">📱 ' + esc(addr.phone) + '<\/div><\/div>';
+            labelHTML += '<div class="from-section"><h3>From<\/h3><strong>Scan2Reach<\/strong><br>scan2reach-new.web.app<\/div>';
+            labelHTML += '<div class="product-info">Product: <strong>' + esc(order.productType || 'Vehicle QR') + '<\/strong> | ID: <strong>' + pid.substring(0, 8) + '...<\/strong><\/div>';
+            labelHTML += '<\/div>';
+            labelHTML += '<button class="print-btn" onclick="window.print()">🖨️ Print Label<\/button>';
+            labelHTML += '<\/body><\/html>';
+
+            var w = window.open('', '_blank', 'width=500,height=700');
+            w.document.write(labelHTML);
+            w.document.close();
+        };
+
+        // ==================== Export CSV ====================
+        window.exportCSV = function() {
+            if (!filteredOrders.length) { showToast('No orders', 'error'); return; }
+            var headers = ['Sr', 'Name', 'Phone', 'Email', 'Address1', 'Address2', 'City', 'State', 'PIN', 'Country', 'Product', 'Amount', 'PaymentID', 'Status', 'Tracking', 'ProfileID', 'Date'];
+            var rows = filteredOrders.map(function(o, i) {
+                var a = o.shippingAddress || {};
+                var dateVal = '';
+                var ts = a.addedAt || o.addressUpdatedAt || o.createdAt;
+                if (ts && ts.seconds) { dateVal = new Date(ts.seconds * 1000).toLocaleString('en-IN'); }
+                return [i + 1, a.fullName || '', a.phone || '', o.userEmail || '', a.address1 || '', a.address2 || '', a.city || '', a.state || '', a.pincode || '', a.country || 'India', o.productType || 'Vehicle', o.paidAmount || o.amount || '', o.paymentId || '', o.cardDispatchStatus || 'pending', o.trackingNumber || '', o.profileId, dateVal].map(function(v) {
+                    return '"' + String(v || '').replace(/"/g, '""') + '"';
+                });
+            });
+            var csv = [headers.join(',')].concat(rows.map(function(r) { return r.join(','); })).join('\n');
+            var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'scan2reach-orders-' + new Date().toISOString().split('T')[0] + '.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Exported ' + filteredOrders.length + ' orders');
+        };
+    </script>
+</body>
+</html>

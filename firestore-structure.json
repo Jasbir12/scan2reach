@@ -1,0 +1,972 @@
+{
+  "activity_logs": {
+    "totalDocuments": 60,
+    "fields": [
+      "action",
+      "createdAt",
+      "metadata",
+      "targetId",
+      "targetType",
+      "type",
+      "userId"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "0z7Ae85ba04xpQzwhorB",
+        "action": "User performed an action",
+        "createdAt": "2026-02-21T19:45:00.000Z",
+        "metadata": {
+          "device": "Mobile",
+          "ipAddress": "159.41.0.0"
+        },
+        "targetId": "Y5FbPTa3betuk03KuTjo",
+        "targetType": "profile",
+        "type": "saved_contact",
+        "userId": "I7YUVti5ZiY5WjMlgH8q6AJuky52"
+      },
+      {
+        "_id": "11W2Q3uzf4NQUnrzDsO7",
+        "action": "User performed an action",
+        "createdAt": "2026-02-11T11:46:00.000Z",
+        "metadata": {
+          "device": "Desktop",
+          "ipAddress": "113.43.0.0"
+        },
+        "targetId": "F0M72ue7OXzyMOkqOeFg",
+        "targetType": "profile",
+        "type": "created_profile",
+        "userId": "KxtSp2ZwDQcHH9LtvckWKFdTgsG2"
+      },
+      {
+        "_id": "3BohoJbaUMUPdsCuhFmn",
+        "action": "User performed an action",
+        "createdAt": "2026-02-14T04:13:00.000Z",
+        "metadata": {
+          "device": "Mobile",
+          "ipAddress": "170.1.0.0"
+        },
+        "targetId": "Y5FbPTa3betuk03KuTjo",
+        "targetType": "profile",
+        "type": "saved_contact",
+        "userId": "KMAt0FSHGeetFU5x52ZvnTTez4U2"
+      }
+    ]
+  },
+  "admin_logs": {
+    "totalDocuments": 31,
+    "fields": [
+      "action",
+      "adminEmail",
+      "adminId",
+      "adminName",
+      "details",
+      "targetCollection",
+      "targetId",
+      "timestamp"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "0ftHt862tVrzBoZuwDG3",
+        "action": "login",
+        "adminEmail": "ishvr107@gmail.com",
+        "adminId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "adminName": "Ishvr",
+        "details": "Admin logged into panel",
+        "targetCollection": "admin_panel",
+        "targetId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "timestamp": "2026-03-13T10:27:50.444Z"
+      },
+      {
+        "_id": "8er2dLD4vB83OiE7sxrQ",
+        "action": "login",
+        "adminEmail": "ishvr107@gmail.com",
+        "adminId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "adminName": "Ishvr",
+        "details": "Opened Settings & Roles page",
+        "targetCollection": "admin_panel",
+        "targetId": null,
+        "timestamp": "2026-03-13T10:30:42.613Z"
+      },
+      {
+        "_id": "9iz3dhMo3tDVyAReiqdo",
+        "action": "login",
+        "adminEmail": "ishvr107@gmail.com",
+        "adminId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "adminName": "Ishvr",
+        "details": "Admin logged into panel",
+        "targetCollection": "admin_panel",
+        "targetId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "timestamp": "2026-03-12T17:44:51.932Z"
+      }
+    ]
+  },
+  "admin_roles": {
+    "totalDocuments": 3,
+    "fields": [
+      "createdAt",
+      "description",
+      "name",
+      "permissions"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "PQg1hifSHS4Sxm8W8rMD",
+        "createdAt": "2026-03-11T18:13:03.299Z",
+        "description": "Standard admin access",
+        "name": "admin",
+        "permissions": [
+          "manage_users",
+          "manage_profiles",
+          "manage_products",
+          "view_analytics"
+        ]
+      },
+      {
+        "_id": "br3OqXU1GTxoqA4U9cMk",
+        "createdAt": "2026-03-11T18:13:03.391Z",
+        "description": "Read-only access",
+        "name": "viewer",
+        "permissions": [
+          "view_analytics",
+          "view_users"
+        ]
+      },
+      {
+        "_id": "vbWXieSsAy7p3K68Fn2u",
+        "createdAt": "2026-03-11T18:13:03.230Z",
+        "description": "Full system access",
+        "name": "super_admin",
+        "permissions": [
+          "all"
+        ]
+      }
+    ]
+  },
+  "admins": {
+    "totalDocuments": 1,
+    "fields": [
+      "createdAt",
+      "email",
+      "name",
+      "role",
+      "uid"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "createdAt": "2026-03-11T17:58:27.778Z",
+        "email": "ishvr107@gmail.com",
+        "name": "Ishvr",
+        "role": "super_admin",
+        "uid": "YRxFdT6IK8SmYjBcvKKfGoqItRy1"
+      }
+    ]
+  },
+  "analytics": {
+    "totalDocuments": 100,
+    "fields": [
+      "device",
+      "location",
+      "profileId",
+      "sessionId",
+      "timestamp",
+      "type",
+      "userId"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "07NWcs2Dn8jcQfyr1fUN",
+        "device": "Desktop",
+        "location": "Delhi",
+        "profileId": "9etK8JYOtlRq0i16Ei4t",
+        "sessionId": "session-6r3ennxl1",
+        "timestamp": "2026-02-09T23:09:00.000Z",
+        "type": "view",
+        "userId": "KxtSp2ZwDQcHH9LtvckWKFdTgsG2"
+      },
+      {
+        "_id": "0O0EnXp54VA6GN0wQGhB",
+        "device": "Mobile",
+        "location": "Mumbai",
+        "profileId": "9etK8JYOtlRq0i16Ei4t",
+        "sessionId": "session-cwmkja2cs",
+        "timestamp": "2026-02-28T02:58:00.000Z",
+        "type": "view",
+        "userId": "KMAt0FSHGeetFU5x52ZvnTTez4U2"
+      },
+      {
+        "_id": "0ZqnrO180BcPUcShYRyu",
+        "device": "Desktop",
+        "location": "Bangalore",
+        "profileId": "Y5FbPTa3betuk03KuTjo",
+        "sessionId": "session-le1y37yp2",
+        "timestamp": "2026-02-09T23:09:00.000Z",
+        "type": "link_click",
+        "userId": "KxtSp2ZwDQcHH9LtvckWKFdTgsG2"
+      }
+    ]
+  },
+  "call_history": {
+    "totalDocuments": 11,
+    "fields": [
+      "callId",
+      "callType",
+      "callerName",
+      "deviceMode",
+      "duration",
+      "status",
+      "timestamp",
+      "userId",
+      "vehicleNumber"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "4afQGimJ0ajpfwJV4cXh",
+        "callId": "-On6p0rbNYPPUSJedmTF",
+        "callType": "normal",
+        "callerName": "Yash",
+        "deviceMode": "main",
+        "duration": 9,
+        "status": "completed",
+        "timestamp": "2026-03-07T10:25:14.165Z",
+        "userId": "q7JrbXRTZ5XdzGqPyoEvlwe5dmm1",
+        "vehicleNumber": "BR04K9840"
+      },
+      {
+        "_id": "54Guw2b0HuRx8OrqlIeg",
+        "callId": "-On6sMwzWXQbroTl264t",
+        "callType": "normal",
+        "callerName": "Yash",
+        "deviceMode": "main",
+        "duration": 27,
+        "status": "completed",
+        "timestamp": "2026-03-07T10:40:03.319Z",
+        "userId": "q7JrbXRTZ5XdzGqPyoEvlwe5dmm1",
+        "vehicleNumber": "BR04K9840"
+      },
+      {
+        "_id": "9X5rqniqAr2HueJ5K4ZE",
+        "callId": "-On6s96TWKRQKtRG-MT0",
+        "callType": "normal",
+        "callerName": "Anonymous",
+        "deviceMode": "main",
+        "duration": 5,
+        "status": "completed",
+        "timestamp": "2026-03-07T10:39:04.479Z",
+        "userId": "q7JrbXRTZ5XdzGqPyoEvlwe5dmm1",
+        "vehicleNumber": "BR04K9840"
+      }
+    ]
+  },
+  "calls": {
+    "totalDocuments": 25,
+    "fields": [
+      "calledAt",
+      "callerId",
+      "device",
+      "duration",
+      "phoneNumber",
+      "profileId",
+      "status"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "6hRPZxTjL2HhXHeSJvY3",
+        "calledAt": "2026-03-03T13:55:00.000Z",
+        "callerId": "caller-hy0dtu8wd",
+        "device": "Desktop",
+        "duration": 313,
+        "phoneNumber": "+91-7164324692",
+        "profileId": "Y5FbPTa3betuk03KuTjo",
+        "status": "completed"
+      },
+      {
+        "_id": "7HQuJ7ydVVL5ze5BWh3Z",
+        "calledAt": "2026-02-17T22:01:00.000Z",
+        "callerId": "caller-wg5q5eldr",
+        "device": "Desktop",
+        "duration": 282,
+        "phoneNumber": "+91-4131144092",
+        "profileId": "F0M72ue7OXzyMOkqOeFg",
+        "status": "rejected"
+      },
+      {
+        "_id": "91lzln49dmmis7gUv8ND",
+        "calledAt": "2026-02-24T18:52:00.000Z",
+        "callerId": "caller-ra39mv8db",
+        "device": "Desktop",
+        "duration": 515,
+        "phoneNumber": "+91-3937178226",
+        "profileId": "Y5FbPTa3betuk03KuTjo",
+        "status": "rejected"
+      }
+    ]
+  },
+  "fcmTokens": {
+    "totalDocuments": 1,
+    "fields": [
+      "createdAt",
+      "deviceInfo",
+      "deviceMode",
+      "token",
+      "updatedAt",
+      "userId"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "fAR8kF3HSLC246LPZmpDt3:APA91bEZSrYIUYcgphU-61gKIErB1kBQxJxRIQYuuwTl9bhVD7LpQ1UYsj0YECfL2J7_vJfUWuy9J_P4CTMm6NyZIIHPl2lAnATr_5beoiMNg1MZk13ZOeg",
+        "createdAt": "2026-03-09T16:05:43.691Z",
+        "deviceInfo": {
+          "osVersion": "15",
+          "model": "V2246",
+          "sdkVersion": 35,
+          "manufacturer": "vivo"
+        },
+        "deviceMode": "main",
+        "token": "fAR8kF3HSLC246LPZmpDt3:APA91bEZSrYIUYcgphU-61gKIErB1kBQxJxRIQYuuwTl9bhVD7LpQ1UYsj0YECfL2J7_vJfUWuy9J_P4CTMm6NyZIIHPl2lAnATr_5beoiMNg1MZk13ZOeg",
+        "updatedAt": "2026-03-09T16:05:43.691Z",
+        "userId": "q7JrbXRTZ5XdzGqPyoEvlwe5dmm1"
+      }
+    ]
+  },
+  "notifications": {
+    "totalDocuments": 20,
+    "fields": [
+      "createdAt",
+      "isRead",
+      "message",
+      "metadata",
+      "priority",
+      "targetAdminId",
+      "title",
+      "type"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "67eqo7PiWFAPj694V0Yi",
+        "createdAt": "2026-02-14T04:13:00.000Z",
+        "isRead": true,
+        "message": "This is a sample notification message",
+        "metadata": {
+          "userId": "KxtSp2ZwDQcHH9LtvckWKFdTgsG2"
+        },
+        "priority": "high",
+        "targetAdminId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "title": "System Notification",
+        "type": "payment_received"
+      },
+      {
+        "_id": "8QrYo1Mxbbau3hDU648D",
+        "createdAt": "2026-02-24T18:52:00.000Z",
+        "isRead": false,
+        "message": "This is a sample notification message",
+        "metadata": {
+          "userId": "KMAt0FSHGeetFU5x52ZvnTTez4U2"
+        },
+        "priority": "medium",
+        "targetAdminId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "title": "System Notification",
+        "type": "payment_received"
+      },
+      {
+        "_id": "HmSpCcebwy8T0t0c7xUI",
+        "createdAt": "2026-02-21T19:45:00.000Z",
+        "isRead": true,
+        "message": "This is a sample notification message",
+        "metadata": {
+          "userId": "KxtSp2ZwDQcHH9LtvckWKFdTgsG2"
+        },
+        "priority": "medium",
+        "targetAdminId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "title": "System Notification",
+        "type": "high_activity"
+      }
+    ]
+  },
+  "payments": {
+    "totalDocuments": 15,
+    "fields": [
+      "amount",
+      "createdAt",
+      "currency",
+      "metadata",
+      "paymentMethod",
+      "plan",
+      "status",
+      "transactionId",
+      "userId"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "5WTBVBF6S4RvxmLtoMgi",
+        "amount": 599,
+        "createdAt": "2026-02-24T18:52:00.000Z",
+        "currency": "INR",
+        "metadata": {
+          "orderId": "order_g6ddyja47o"
+        },
+        "paymentMethod": "razorpay",
+        "plan": "basic",
+        "status": "success",
+        "transactionId": "txn_i737vcr4ikd",
+        "userId": "KMAt0FSHGeetFU5x52ZvnTTez4U2"
+      },
+      {
+        "_id": "6NSWOiE659fujK7xrLAl",
+        "amount": 299,
+        "createdAt": "2026-02-26T23:26:00.000Z",
+        "currency": "INR",
+        "metadata": {
+          "orderId": "order_2klobzq1r8"
+        },
+        "paymentMethod": "razorpay",
+        "plan": "pro",
+        "status": "success",
+        "transactionId": "txn_ceftjg2k29s",
+        "userId": "I7YUVti5ZiY5WjMlgH8q6AJuky52"
+      },
+      {
+        "_id": "B8QSJNXnj9Ern7pnYLpd",
+        "amount": 999,
+        "createdAt": "2026-02-23T04:42:00.000Z",
+        "currency": "INR",
+        "metadata": {
+          "orderId": "order_wowevqyrwh"
+        },
+        "paymentMethod": "razorpay",
+        "plan": "basic",
+        "status": "success",
+        "transactionId": "txn_9h6wl1qpqm",
+        "userId": "I7YUVti5ZiY5WjMlgH8q6AJuky52"
+      }
+    ]
+  },
+  "plans": {
+    "totalDocuments": 3,
+    "fields": [
+      "createdAt",
+      "features",
+      "name",
+      "price",
+      "status",
+      "updatedAt"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "OUvx5P3iHn6MLGPV9TCs",
+        "createdAt": "2026-02-16T06:28:20.614Z",
+        "features": [
+          "Professional Card Page",
+          "Profile Photo Upload",
+          "Save Contact Button",
+          "Social Media Links",
+          "Unlimited Scans",
+          "Analytics Dashboard"
+        ],
+        "name": "Card",
+        "price": 299,
+        "status": "active",
+        "updatedAt": "2026-02-16T15:57:19.871Z"
+      },
+      {
+        "_id": "WuiFiIiRTMgCN0xLIryJ",
+        "createdAt": "2026-02-16T16:03:52.881Z",
+        "features": [
+          "qqq"
+        ],
+        "name": "Business",
+        "price": 699,
+        "status": "active",
+        "updatedAt": "2026-02-16T16:03:52.881Z"
+      },
+      {
+        "_id": "uXL4Rxw6GJkkA0ptF3F9",
+        "createdAt": "2026-02-16T06:28:20.614Z",
+        "features": [
+          "Everything in Basic",
+          "Multiple Contact Numbers",
+          "No Branding Watermark",
+          "Advanced Analytics",
+          "Priority Support"
+        ],
+        "name": "Vehicle Pro",
+        "price": 399,
+        "status": "active",
+        "updatedAt": "2026-02-16T15:57:31.371Z"
+      }
+    ]
+  },
+  "products": {
+    "totalDocuments": 2,
+    "fields": [
+      "description",
+      "displayOrder",
+      "duration",
+      "features",
+      "icon",
+      "isActive",
+      "isFeatured",
+      "label",
+      "name",
+      "price",
+      "type",
+      "updatedAt"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "vehicle-basic",
+        "description": "Essential vehicle contact solution for car owners",
+        "displayOrder": 1,
+        "features": [
+          "Digital QR code",
+          "Owner contact details",
+          "Emergency access",
+          "1-year validity"
+        ],
+        "icon": "🚗",
+        "isActive": true,
+        "isFeatured": false,
+        "label": null,
+        "name": "Vehicle QR",
+        "price": 199
+      },
+      {
+        "_id": "vehicle-elite",
+        "description": "Premium vehicle QR with physical card delivery",
+        "displayOrder": 3,
+        "duration": 12,
+        "features": [
+          "Physical QR card",
+          "Free home delivery",
+          "Premium support",
+          "Analytics dashboard"
+        ],
+        "icon": "🚗",
+        "isActive": true,
+        "isFeatured": "PREMIUM",
+        "name": "Vehicle Pro",
+        "price": 499,
+        "type": "vehicle",
+        "updatedAt": "2026-03-13T03:20:50.704Z"
+      }
+    ]
+  },
+  "profiles": {
+    "totalDocuments": 5,
+    "fields": [
+      "address",
+      "alternatePhone",
+      "amount",
+      "baseAmount",
+      "callCount",
+      "cardTheme",
+      "company",
+      "createdAt",
+      "designCount",
+      "email",
+      "expiryDate",
+      "fullName",
+      "gstAmount",
+      "jobTitle",
+      "lastScannedAt",
+      "lastViewed",
+      "lastVisited",
+      "linkedin",
+      "notes",
+      "orderId",
+      "ownerName",
+      "paidAmount",
+      "paidAt",
+      "paymentAmount",
+      "paymentDate",
+      "paymentId",
+      "paymentMethod",
+      "phone",
+      "phoneNumber",
+      "planType",
+      "primaryPhone",
+      "productType",
+      "published",
+      "scanCount",
+      "signature",
+      "status",
+      "subscriptionExpiry",
+      "subscriptionStart",
+      "subscriptionStatus",
+      "tier",
+      "twitter",
+      "updatedAt",
+      "userEmail",
+      "userId",
+      "vehicleColor",
+      "vehicleNotes",
+      "vehicleNumber",
+      "vehicleType",
+      "views",
+      "visitCount",
+      "website"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "9etK8JYOtlRq0i16Ei4t",
+        "address": "",
+        "amount": 299,
+        "baseAmount": 299,
+        "company": "Indag Rubber Ltd.",
+        "createdAt": "2026-02-17T08:02:56.768Z",
+        "email": "ishvr107@gmail.com",
+        "fullName": "Yashveer Kumar",
+        "gstAmount": 54,
+        "jobTitle": "Business Analyst",
+        "lastScannedAt": "2026-03-11T18:12:14.237Z",
+        "lastViewed": "2026-03-04T12:03:33.172Z",
+        "lastVisited": null,
+        "linkedin": "https://www.linkedin.com/in/yashveer-kumar335/",
+        "orderId": "",
+        "paidAmount": 353,
+        "paidAt": "2026-02-17T08:04:33.972Z",
+        "paymentId": "pay_SH8lDXBCAoCmjY",
+        "paymentMethod": "razorpay",
+        "phone": "+916201076468",
+        "productType": "card",
+        "published": true,
+        "scanCount": 16,
+        "signature": "",
+        "status": "paid",
+        "subscriptionExpiry": "2027-02-16T18:30:00.000Z",
+        "subscriptionStart": "2026-02-17T08:04:33.972Z",
+        "twitter": "",
+        "userEmail": "ishvr107@gmail.com",
+        "userId": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "views": 6,
+        "visitCount": 0,
+        "website": ""
+      },
+      {
+        "_id": "pAjYVp6CxU4gf4vHTjZB",
+        "alternatePhone": "",
+        "callCount": 0,
+        "cardTheme": "cd-gold",
+        "createdAt": "2026-03-04T12:08:20.595Z",
+        "designCount": 1,
+        "expiryDate": "2027-03-04T12:10:07.257Z",
+        "fullName": "Yash",
+        "lastViewed": "2026-03-05T04:57:02.835Z",
+        "notes": "",
+        "paymentAmount": 235,
+        "paymentDate": "2026-03-04T12:10:05.857Z",
+        "paymentId": "pay_SN8xDbdkNRdFvz",
+        "phoneNumber": "+919292838393",
+        "planType": "vehicle",
+        "productType": "vehicle",
+        "scanCount": 0,
+        "status": "active",
+        "subscriptionStatus": "active",
+        "updatedAt": "2026-03-04T12:10:05.857Z",
+        "userEmail": "yashveer252@gmail.com",
+        "userId": "q7JrbXRTZ5XdzGqPyoEvlwe5dmm1",
+        "vehicleColor": "Black",
+        "vehicleNumber": "BR04K9840",
+        "vehicleType": "Car",
+        "views": 2
+      },
+      {
+        "_id": "rBmZbY6vifh8P0jIPBeR",
+        "alternatePhone": "+917464030178",
+        "amount": 199,
+        "baseAmount": 199,
+        "createdAt": "2026-02-17T07:58:52.177Z",
+        "gstAmount": 36,
+        "lastVisited": null,
+        "orderId": "",
+        "ownerName": "Prince",
+        "paidAmount": 235,
+        "paidAt": "2026-02-17T07:59:48.241Z",
+        "paymentId": "pay_SH8fi12jctJkZQ",
+        "paymentMethod": "razorpay",
+        "primaryPhone": "+918102618526",
+        "productType": "vehicle",
+        "published": true,
+        "signature": "",
+        "status": "paid",
+        "subscriptionExpiry": "2027-02-16T18:30:00.000Z",
+        "subscriptionStart": "2026-02-17T07:59:48.241Z",
+        "tier": "basic",
+        "userEmail": "iamprincepandy@gmail.com",
+        "userId": "KxtSp2ZwDQcHH9LtvckWKFdTgsG2",
+        "vehicleColor": "Black",
+        "vehicleNotes": "",
+        "vehicleNumber": "BR04LA1090",
+        "vehicleType": "Scooter",
+        "visitCount": 0
+      }
+    ]
+  },
+  "qr_codes": {
+    "totalDocuments": 3,
+    "fields": [
+      "backgroundColor",
+      "foregroundColor",
+      "format",
+      "generatedAt",
+      "productId",
+      "profileId",
+      "qrCodeUrl",
+      "scans",
+      "size",
+      "status"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "CjiXYB3KzT7k0XjN6ZSr",
+        "backgroundColor": "#ffffff",
+        "foregroundColor": "#000000",
+        "format": "PNG",
+        "generatedAt": "2026-03-11T18:13:03.163Z",
+        "productId": "vehicle-basic",
+        "profileId": "Y5FbPTa3betuk03KuTjo",
+        "qrCodeUrl": "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=Y5FbPTa3betuk03KuTjo",
+        "scans": 397,
+        "size": "300x300",
+        "status": "active"
+      },
+      {
+        "_id": "SdznhQmltwg2jy9NYjFF",
+        "backgroundColor": "#ffffff",
+        "foregroundColor": "#000000",
+        "format": "PNG",
+        "generatedAt": "2026-03-11T18:13:03.032Z",
+        "productId": "vehicle-basic",
+        "profileId": "9etK8JYOtlRq0i16Ei4t",
+        "qrCodeUrl": "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=9etK8JYOtlRq0i16Ei4t",
+        "scans": 17,
+        "size": "300x300",
+        "status": "active"
+      },
+      {
+        "_id": "jqlMcyH95e2DopmzCsBE",
+        "backgroundColor": "#ffffff",
+        "foregroundColor": "#000000",
+        "format": "PNG",
+        "generatedAt": "2026-03-11T18:13:03.091Z",
+        "productId": "vehicle-elite",
+        "profileId": "F0M72ue7OXzyMOkqOeFg",
+        "qrCodeUrl": "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=F0M72ue7OXzyMOkqOeFg",
+        "scans": 454,
+        "size": "300x300",
+        "status": "active"
+      }
+    ]
+  },
+  "scan_analytics": {
+    "totalDocuments": 30,
+    "fields": [
+      "date",
+      "deviceBreakdown",
+      "locationBreakdown",
+      "topProduct",
+      "topProfile",
+      "totalScans",
+      "uniqueUsers"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "0yoHvNJKMOc7TMaQbVUN",
+        "date": "2026-02-17T16:52:00.000Z",
+        "deviceBreakdown": {
+          "mobile": 43,
+          "desktop": 34
+        },
+        "locationBreakdown": {
+          "Mumbai": 20,
+          "Delhi": 8,
+          "Bangalore": 11
+        },
+        "topProduct": "vehicle-basic",
+        "topProfile": "9etK8JYOtlRq0i16Ei4t",
+        "totalScans": 46,
+        "uniqueUsers": 49
+      },
+      {
+        "_id": "26XYFJxgcFCsYJZYQCv2",
+        "date": "2026-02-20T08:03:00.000Z",
+        "deviceBreakdown": {
+          "mobile": 48,
+          "desktop": 41
+        },
+        "locationBreakdown": {
+          "Mumbai": 24,
+          "Delhi": 28,
+          "Bangalore": 15
+        },
+        "topProduct": "vehicle-basic",
+        "topProfile": "9etK8JYOtlRq0i16Ei4t",
+        "totalScans": 106,
+        "uniqueUsers": 19
+      },
+      {
+        "_id": "5Xr4aAbJqMCaUlHaUCPz",
+        "date": "2026-02-21T00:57:00.000Z",
+        "deviceBreakdown": {
+          "mobile": 58,
+          "desktop": 37
+        },
+        "locationBreakdown": {
+          "Mumbai": 3,
+          "Delhi": 6,
+          "Bangalore": 7
+        },
+        "topProduct": "vehicle-basic",
+        "topProfile": "9etK8JYOtlRq0i16Ei4t",
+        "totalScans": 99,
+        "uniqueUsers": 10
+      }
+    ]
+  },
+  "scans": {
+    "totalDocuments": 50,
+    "fields": [
+      "browser",
+      "country",
+      "device",
+      "ipAddress",
+      "location",
+      "profileId",
+      "scannedAt",
+      "userId"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "1Q9UqoONSgWtCU1BaMRN",
+        "browser": "Safari",
+        "country": "India",
+        "device": "Mobile",
+        "ipAddress": "70.89.77.78",
+        "location": "Kolkata",
+        "profileId": "9etK8JYOtlRq0i16Ei4t",
+        "scannedAt": "2026-02-21T00:57:00.000Z",
+        "userId": "I7YUVti5ZiY5WjMlgH8q6AJuky52"
+      },
+      {
+        "_id": "1eT5Cca9K2cmHHsAdGHd",
+        "browser": "Edge",
+        "country": "India",
+        "device": "Mobile",
+        "ipAddress": "14.159.12.187",
+        "location": "Chennai",
+        "profileId": "Y5FbPTa3betuk03KuTjo",
+        "scannedAt": "2026-03-09T22:41:00.000Z",
+        "userId": "I7YUVti5ZiY5WjMlgH8q6AJuky52"
+      },
+      {
+        "_id": "3FFeO6L8lv0Gq90c1uiq",
+        "browser": "Safari",
+        "country": "India",
+        "device": "Desktop",
+        "ipAddress": "91.185.197.252",
+        "location": "Chennai",
+        "profileId": "Y5FbPTa3betuk03KuTjo",
+        "scannedAt": "2026-02-24T01:18:00.000Z",
+        "userId": "KxtSp2ZwDQcHH9LtvckWKFdTgsG2"
+      }
+    ]
+  },
+  "settings": {
+    "totalDocuments": 3,
+    "fields": [
+      "business",
+      "currency",
+      "digital_card",
+      "siteName",
+      "vehicle",
+      "vehicle_elite"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "general",
+        "currency": "INR",
+        "siteName": "Scan2Reach"
+      },
+      {
+        "_id": "plans",
+        "digital_card": {
+          "name": "Digital Card",
+          "price": 299
+        },
+        "vehicle": {
+          "name": "Vehicle QR",
+          "price": 199
+        }
+      },
+      {
+        "_id": "pricing",
+        "business": 499,
+        "digital_card": 299,
+        "vehicle": 199,
+        "vehicle_elite": 399
+      }
+    ]
+  },
+  "users": {
+    "totalDocuments": 4,
+    "fields": [
+      "accountStatus",
+      "appearance",
+      "createdAt",
+      "displayName",
+      "email",
+      "lastLogin",
+      "name",
+      "phone",
+      "plan",
+      "status",
+      "subscription",
+      "uid",
+      "updatedAt",
+      "updatedBy"
+    ],
+    "sampleDocs": [
+      {
+        "_id": "I7YUVti5ZiY5WjMlgH8q6AJuky52",
+        "accountStatus": "pending_payment",
+        "createdAt": "2026-02-22T17:07:37.664Z",
+        "displayName": "yashveerkumar",
+        "email": "yashveerkumar@amityonline.com",
+        "lastLogin": "2026-03-04T11:36:47.523Z",
+        "name": "yashveerkumar",
+        "phone": "+916201076468",
+        "plan": "free",
+        "status": "active",
+        "subscription": {
+          "plan": "free"
+        },
+        "updatedAt": "2026-03-11T19:23:01.582Z",
+        "updatedBy": "ishvr107@gmail.com"
+      },
+      {
+        "_id": "KxtSp2ZwDQcHH9LtvckWKFdTgsG2",
+        "accountStatus": "pending_payment",
+        "createdAt": "2026-02-16T09:12:57.692Z",
+        "email": "iamprincepandy@gmail.com",
+        "lastLogin": "2026-03-06T08:44:33.546Z",
+        "phone": "+918102618526",
+        "plan": "free",
+        "status": "active",
+        "updatedAt": "2026-03-06T08:44:33.546Z"
+      },
+      {
+        "_id": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "appearance": {
+          "darkMode": false,
+          "compactView": false,
+          "animations": true
+        },
+        "createdAt": "2026-03-04T07:43:44.310Z",
+        "email": "yashveer252@gmail.com",
+        "lastLogin": "2026-03-13T10:27:01.095Z",
+        "uid": "YRxFdT6IK8SmYjBcvKKfGoqItRy1",
+        "updatedAt": "2026-03-13T10:27:01.095Z"
+      }
+    ]
+  }
+}

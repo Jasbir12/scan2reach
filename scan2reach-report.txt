@@ -1,0 +1,4197 @@
+﻿===== CallListenerService =====
+package com.scan2reachapp.services;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Intent;
+import android.os.Build;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.os.PowerManager;
+import android.util.Log;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.scan2reachapp.R;
+import com.scan2reachapp.activities.IncomingCallActivity;
+import com.scan2reachapp.activities.MainActivity;
+import com.scan2reachapp.utils.Constants;
+import com.scan2reachapp.utils.PreferenceManager;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class CallListenerService extends Service {
+
+    private static final String TAG = "CallListenerService";
+    private static final String CHANNEL_ID = "call_listener_channel";
+    private static final int NOTIFICATION_ID = 9999;
+
+    private FirebaseFirestore db;
+    private Map<String, DatabaseReference> callsRefMap = new HashMap<>();
+    private Map<String, ChildEventListener> listenersMap = new HashMap<>();
+    private PreferenceManager preferenceManager;
+    private String currentUserId;
+    private PowerManager.WakeLock wakeLock;
+    private Handler mainHandler;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.d(TAG, "Service created");
+        preferenceManager = new PreferenceManager(this);
+        db = FirebaseFirestore.getInstance();
+        mainHandler = new Handler(Looper.getMainLooper());
+        createNotificationChannel();
+        acquireWakeLock();
+    }
+
+    private void showToast(final String message) {
+        mainHandler.post(() -> Toast.makeText(CallListenerService.this, message, Toast.LENGTH_LONG).show());
+    }
+
+    private void acquireWakeLock() {
+        try {
+            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+            if (powerManager != null) {
+                wakeLock = powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "Scan2Reach::CallListenerWakeLock"
+                );
+                wakeLock.acquire(10 * 60 * 1000L);
+                Log.d(TAG, "WakeLock acquired");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error acquiring WakeLock", e);
+        }
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "Service started");
+        startForeground(NOTIFICATION_ID, createForegroundNotification());
+        startListeningForCalls();
+        return START_STICKY;
+    }
+
+    private void startListeningForCalls() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Log.e(TAG, "User not logged in");
+            showToast("âŒ ERROR: User not logged in");
+            stopSelf();
+            return;
+        }
+
+        currentUserId = user.getUid();
+        String userEmail = user.getEmail();
+        
+        Log.d(TAG, "Current user UID: " + currentUserId);
+        Log.d(TAG, "Current user email: " + userEmail);
+
+        showToast("ðŸ‘¤ Logged in as: " + userEmail);
+
+        // Listen to current user ID
+        listenToUserId(currentUserId);
+
+        // Fetch profiles
+        if (userEmail != null) {
+            showToast("ðŸ” Searching profiles for: " + userEmail);
+            
+            db.collection(Constants.COLLECTION_PROFILES)
+                .whereEqualTo("userEmail", userEmail)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    int count = queryDocumentSnapshots.size();
+                    Log.d(TAG, "Firestore query returned " + count + " profiles");
+                    
+                    showToast("ðŸ“‹ Found " + count + " profiles");
+                    
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        showToast("âš ï¸ NO PROFILES FOUND for: " + userEmail);
+                        return;
+                    }
+
+                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                        String profileUserId = doc.getString("userId");
+                        String vehicleNumber = doc.getString("vehicleNumber");
+                        String profileEmail = doc.getString("userEmail");
+                        
+                        Log.d(TAG, "Profile found:");
+                        Log.d(TAG, "  Vehicle: " + vehicleNumber);
+                        Log.d(TAG, "  userId: " + profileUserId);
+                        Log.d(TAG, "  userEmail: " + profileEmail);
+                        
+                        showToast("ðŸš— " + vehicleNumber + "\nUserID: " + (profileUserId != null ? profileUserId.substring(0, 12) + "..." : "null"));
+                        
+                        if (profileUserId != null && !profileUserId.equals(currentUserId)) {
+                            listenToUserId(profileUserId);
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error fetching profiles: " + e.getMessage());
+                    showToast("âŒ Error: " + e.getMessage());
+                });
+        } else {
+            showToast("âŒ User email is NULL");
+        }
+    }
+
+    private void listenToUserId(String userId) {
+        if (callsRefMap.containsKey(userId)) {
+            Log.d(TAG, "Already listening to userId: " + userId);
+            return;
+        }
+
+        Log.d(TAG, "Setting up listener for userId: " + userId);
+        showToast("ðŸŽ§ Listening to: " + userId.substring(0, 12) + "...");
+
+        FirebaseDatabase database = FirebaseDatabase.getInstance(Constants.FIREBASE_DATABASE_URL);
+        DatabaseReference callsRef = database.getReference("calls").child(userId);
+
+        ChildEventListener callListener = new ChildEventListener() {
+            @Override
+            public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
+                Log.d(TAG, "ðŸ“ž NEW CALL received for userId " + userId + ": " + snapshot.getKey());
+                showToast("ðŸ“ž INCOMING CALL detected!");
+                handleIncomingCall(snapshot, userId);
+            }
+
+            @Override
+            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
+                Log.d(TAG, "Call updated: " + snapshot.getKey());
+            }
+
+            @Override
+            public void onChildRemoved(@NonNull DataSnapshot snapshot) {
+                Log.d(TAG, "Call removed: " + snapshot.getKey());
+            }
+
+            @Override
+            public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Database error: " + error.getMessage());
+                showToast("âŒ DB Error: " + error.getMessage());
+            }
+        };
+
+        callsRef.addChildEventListener(callListener);
+        
+        callsRefMap.put(userId, callsRef);
+        listenersMap.put(userId, callListener);
+        
+        Log.d(TAG, "âœ… Listener ACTIVE for userId: " + userId);
+        showToast("âœ… Listener active for: " + userId.substring(0, 12) + "...");
+    }
+
+    private void handleIncomingCall(DataSnapshot snapshot, String listenedUserId) {
+        try {
+            String callId = snapshot.getKey();
+            String callerName = snapshot.child("callerName").getValue(String.class);
+            String vehicleNumber = snapshot.child("vehicleNumber").getValue(String.class);
+            String status = snapshot.child("status").getValue(String.class);
+            Boolean isEmergency = snapshot.child("isEmergency").getValue(Boolean.class);
+
+            Log.d(TAG, "Processing call - ID: " + callId + ", Status: " + status);
+
+            if (!"ringing".equals(status)) {
+                Log.d(TAG, "Call status is not ringing: " + status);
+                showToast("âš ï¸ Call status: " + status + " (not ringing)");
+                return;
+            }
+
+            String deviceMode = preferenceManager.getDeviceMode();
+            boolean emergency = isEmergency != null && isEmergency;
+
+            Log.d(TAG, "Device mode: " + deviceMode + ", Emergency: " + emergency);
+
+            if (Constants.MODE_MAIN.equals(deviceMode) && emergency) {
+                Log.d(TAG, "Main device ignoring emergency call");
+                showToast("âš ï¸ Main device ignoring emergency call");
+                return;
+            }
+
+            if (Constants.MODE_EMERGENCY.equals(deviceMode) && !emergency) {
+                Log.d(TAG, "Emergency device ignoring non-emergency call");
+                showToast("âš ï¸ Emergency device ignoring normal call");
+                return;
+            }
+
+            Log.d(TAG, "âœ… LAUNCHING IncomingCallActivity");
+            showToast("âœ… Launching incoming call screen...");
+
+            Intent callIntent = new Intent(this, IncomingCallActivity.class);
+            callIntent.putExtra(Constants.EXTRA_CALL_ID, callId);
+            callIntent.putExtra(Constants.EXTRA_CALLER_NAME, callerName != null ? callerName : "Unknown");
+            callIntent.putExtra(Constants.EXTRA_VEHICLE_NUMBER, vehicleNumber != null ? vehicleNumber : "Unknown");
+            callIntent.putExtra(Constants.EXTRA_IS_EMERGENCY, emergency);
+            callIntent.putExtra("listenedUserId", listenedUserId);
+            callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            
+            startActivity(callIntent);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling incoming call", e);
+            showToast("âŒ Error: " + e.getMessage());
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "Call Listener",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Listening for incoming calls");
+            
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private Notification createForegroundNotification() {
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, 0, notificationIntent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Scan2Reach Active")
+            .setContentText("Ready to receive calls")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setContentIntent(pendingIntent)
+            .build();
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        Log.d(TAG, "App task removed - restarting service");
+        
+        Intent restartServiceIntent = new Intent(getApplicationContext(), CallListenerService.class);
+        restartServiceIntent.setPackage(getPackageName());
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(restartServiceIntent);
+        } else {
+            startService(restartServiceIntent);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "Service destroyed");
+        
+        for (Map.Entry<String, DatabaseReference> entry : callsRefMap.entrySet()) {
+            String userId = entry.getKey();
+            DatabaseReference ref = entry.getValue();
+            ChildEventListener listener = listenersMap.get(userId);
+            
+            if (ref != null && listener != null) {
+                ref.removeEventListener(listener);
+            }
+        }
+        
+        callsRefMap.clear();
+        listenersMap.clear();
+
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
+
+        Intent restartServiceIntent = new Intent(getApplicationContext(), CallListenerService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(restartServiceIntent);
+        } else {
+            startService(restartServiceIntent);
+        }
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}
+
+===== IncomingCallActivity =====
+package com.scan2reachapp.activities;
+
+import android.content.Intent;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Vibrator;
+import android.util.Log;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.scan2reachapp.R;
+import com.scan2reachapp.utils.Constants;
+import com.scan2reachapp.utils.PreferenceManager;
+
+public class IncomingCallActivity extends AppCompatActivity {
+
+    private static final String TAG = "IncomingCallActivity";
+
+    private TextView tvCallerName, tvVehicleNumber, tvCallType;
+    private Button btnAccept, btnReject;
+
+    private String callId;
+    private String callerName;
+    private String vehicleNumber;
+    private String listenedUserId;
+    private boolean isEmergency;
+
+    private MediaPlayer mediaPlayer;
+    private Vibrator vibrator;
+    private PreferenceManager preferenceManager;
+    private DatabaseReference callRef;
+    private ValueEventListener callListener;
+    private Handler handler;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        
+        Log.d(TAG, "ðŸ”” IncomingCallActivity onCreate called");
+        
+        // Initialize handler
+        handler = new Handler(Looper.getMainLooper());
+        
+        // ðŸ”¥ CRITICAL: Show on lock screen and turn screen on
+        setupLockScreenDisplay();
+
+        setContentView(R.layout.activity_incoming_call);
+
+        preferenceManager = new PreferenceManager(this);
+
+        // Get intent extras
+        extractIntentData();
+
+        // Validate data
+        if (!validateCallData()) {
+            Log.e(TAG, "âŒ Invalid call data - closing activity");
+            finish();
+            return;
+        }
+
+        logCallInfo();
+
+        initViews();
+        displayCallInfo();
+        setupButtons();
+        startRinging();
+        listenToCallStatus();
+    }
+
+    private void setupLockScreenDisplay() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        } else {
+            getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            );
+        }
+    }
+
+    private void extractIntentData() {
+        callId = getIntent().getStringExtra(Constants.EXTRA_CALL_ID);
+        callerName = getIntent().getStringExtra(Constants.EXTRA_CALLER_NAME);
+        vehicleNumber = getIntent().getStringExtra(Constants.EXTRA_VEHICLE_NUMBER);
+        isEmergency = getIntent().getBooleanExtra(Constants.EXTRA_IS_EMERGENCY, false);
+        listenedUserId = getIntent().getStringExtra("listenedUserId");
+
+        // Fallback to current user if listenedUserId is null
+        if (listenedUserId == null && FirebaseAuth.getInstance().getCurrentUser() != null) {
+            listenedUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        }
+    }
+
+    private boolean validateCallData() {
+        if (callId == null || callId.isEmpty()) {
+            Log.e(TAG, "âŒ CallId is null or empty");
+            return false;
+        }
+        if (listenedUserId == null || listenedUserId.isEmpty()) {
+            Log.e(TAG, "âŒ ListenedUserId is null or empty");
+            return false;
+        }
+        return true;
+    }
+
+    private void logCallInfo() {
+        Log.d(TAG, "ðŸ“ž ========== CALL INFO ==========");
+        Log.d(TAG, "CallID: " + callId);
+        Log.d(TAG, "Caller: " + callerName);
+        Log.d(TAG, "Vehicle: " + vehicleNumber);
+        Log.d(TAG, "ListenedUserId: " + listenedUserId);
+        Log.d(TAG, "Emergency: " + isEmergency);
+        Log.d(TAG, "================================");
+    }
+
+    private void initViews() {
+        tvCallerName = findViewById(R.id.tvCallerName);
+        tvVehicleNumber = findViewById(R.id.tvVehicleNumber);
+        tvCallType = findViewById(R.id.tvCallType);
+        btnAccept = findViewById(R.id.btnAccept);
+        btnReject = findViewById(R.id.btnReject);
+    }
+
+    private void displayCallInfo() {
+        tvCallerName.setText(callerName != null ? callerName : "Unknown Caller");
+        tvVehicleNumber.setText(vehicleNumber != null ? vehicleNumber : "");
+        
+        if (isEmergency) {
+            tvCallType.setText("ðŸš¨ EMERGENCY CALL");
+            tvCallType.setTextColor(0xFFEF4444);
+        } else {
+            tvCallType.setText("ðŸ“ž Incoming Call");
+        }
+    }
+
+    private void setupButtons() {
+        btnAccept.setOnClickListener(v -> acceptCall());
+        btnReject.setOnClickListener(v -> rejectCall());
+    }
+
+    private void startRinging() {
+        try {
+            Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            mediaPlayer = MediaPlayer.create(this, ringtoneUri);
+            if (mediaPlayer != null) {
+                mediaPlayer.setLooping(true);
+                mediaPlayer.start();
+                Log.d(TAG, "ðŸ”” Ringtone playing");
+            } else {
+                Log.e(TAG, "âŒ MediaPlayer is null");
+            }
+
+            vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (vibrator != null && vibrator.hasVibrator()) {
+                long[] pattern = {0, 1000, 500, 1000, 500};
+                vibrator.vibrate(pattern, 0);
+                Log.d(TAG, "ðŸ“³ Vibrating");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "âŒ Error starting ringtone/vibration", e);
+        }
+    }
+
+    private void stopRinging() {
+        try {
+            if (mediaPlayer != null) {
+                if (mediaPlayer.isPlaying()) {
+                    mediaPlayer.stop();
+                }
+                mediaPlayer.release();
+                mediaPlayer = null;
+                Log.d(TAG, "ðŸ”• Ringtone stopped");
+            }
+            if (vibrator != null) {
+                vibrator.cancel();
+                Log.d(TAG, "ðŸ“³ Vibration stopped");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "âŒ Error stopping ringtone", e);
+        }
+    }
+
+    private void listenToCallStatus() {
+        try {
+            FirebaseDatabase database = FirebaseDatabase.getInstance(Constants.FIREBASE_DATABASE_URL);
+            callRef = database.getReference("calls")
+                .child(listenedUserId)
+                .child(callId);
+
+            Log.d(TAG, "ðŸ‘‚ Listening to: calls/" + listenedUserId + "/" + callId);
+
+            callListener = new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    if (!snapshot.exists()) {
+                        Log.d(TAG, "ðŸ“ž Call removed from RTDB - ending");
+                        stopRinging();
+                        finish();
+                        return;
+                    }
+
+                    String status = snapshot.child("status").getValue(String.class);
+                    Log.d(TAG, "ðŸ“ž Call status changed: " + status);
+
+                    if ("ended".equals(status) || "cancelled".equals(status)) {
+                        Log.d(TAG, "ðŸ“ž Call " + status + " - closing");
+                        stopRinging();
+                        Toast.makeText(IncomingCallActivity.this, 
+                            "Call " + status, Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    Log.e(TAG, "âŒ Error listening to call", error.toException());
+                }
+            };
+
+            callRef.addValueEventListener(callListener);
+            Log.d(TAG, "âœ… Call listener attached");
+
+        } catch (Exception e) {
+            Log.e(TAG, "âŒ Error setting up call listener", e);
+        }
+    }
+
+    // ðŸ”¥ FIXED: Accept call - Update status FIRST, then wait, then remove
+    private void acceptCall() {
+        Log.d(TAG, "âœ… Call ACCEPTED by user");
+        stopRinging();
+
+        btnAccept.setEnabled(false);
+        btnReject.setEnabled(false);
+        btnAccept.setText("Connecting...");
+
+        if (callRef != null) {
+            // Remove listener first to avoid conflicts
+            if (callListener != null) {
+                callRef.removeEventListener(callListener);
+                callListener = null;
+            }
+
+            Log.d(TAG, "ðŸ“ Step 1: Updating status to 'accepted'");
+            
+            // ðŸ”¥ STEP 1: Update status to "accepted" FIRST
+            callRef.child("status").setValue("accepted")
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "âœ… Status updated to 'accepted'");
+                    Log.d(TAG, "â³ Step 2: Waiting 2 seconds for website to detect...");
+                    
+                    // ðŸ”¥ STEP 2: Wait 2 seconds for website to detect the status change
+                    handler.postDelayed(() -> {
+                        Log.d(TAG, "ðŸ—‘ï¸ Step 3: Removing call from RTDB");
+                        
+                        // ðŸ”¥ STEP 3: Now remove the call
+                        callRef.removeValue()
+                            .addOnSuccessListener(aVoid2 -> {
+                                Log.d(TAG, "âœ… Call removed - website detected acceptance");
+                                openActiveCallScreen();
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "âŒ Error removing call", e);
+                                // Still open active call screen even if removal fails
+                                openActiveCallScreen();
+                            });
+                    }, 2000); // Wait 2 seconds
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "âŒ Error updating status to accepted", e);
+                    Toast.makeText(this, "Error accepting call", Toast.LENGTH_SHORT).show();
+                    finish();
+                });
+        } else {
+            Log.e(TAG, "âŒ callRef is null - cannot accept call");
+            Toast.makeText(this, "Error: Call reference is null", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+    }
+
+    private void openActiveCallScreen() {
+        Log.d(TAG, "ðŸš€ Opening ActiveCallActivity");
+        
+        Intent intent = new Intent(IncomingCallActivity.this, ActiveCallActivity.class);
+        intent.putExtra(Constants.EXTRA_CALL_ID, callId);
+        intent.putExtra(Constants.EXTRA_CALLER_NAME, callerName);
+        intent.putExtra(Constants.EXTRA_VEHICLE_NUMBER, vehicleNumber);
+        intent.putExtra(Constants.EXTRA_IS_EMERGENCY, isEmergency);
+        startActivity(intent);
+        finish();
+    }
+
+    private void rejectCall() {
+        Log.d(TAG, "âŒ Call REJECTED by user");
+        stopRinging();
+
+        btnAccept.setEnabled(false);
+        btnReject.setEnabled(false);
+        btnReject.setText("Rejecting...");
+
+        if (callRef != null) {
+            // Remove listener first
+            if (callListener != null) {
+                callRef.removeEventListener(callListener);
+                callListener = null;
+            }
+
+            Log.d(TAG, "ðŸ“ Setting status to rejected: calls/" + listenedUserId + "/" + callId);
+            
+            // Update status to "rejected" so website can detect
+            callRef.child("status").setValue("rejected")
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "âœ… Status updated to rejected");
+                    
+                    // Wait a moment for website to detect, then remove
+                    handler.postDelayed(() -> {
+                        callRef.removeValue()
+                            .addOnCompleteListener(task -> {
+                                Log.d(TAG, "âœ… Call removed after rejection");
+                                Toast.makeText(this, "Call rejected", Toast.LENGTH_SHORT).show();
+                                finish();
+                            });
+                    }, 1500); // Wait 1.5 seconds
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "âŒ Error updating status to rejected", e);
+                    finish();
+                });
+        } else {
+            Log.e(TAG, "âŒ callRef is null - cannot reject call");
+            finish();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stopRinging();
+        
+        // Remove handler callbacks
+        if (handler != null) {
+            handler.removeCallbacksAndMessages(null);
+        }
+        
+        // Remove listener
+        if (callRef != null && callListener != null) {
+            callRef.removeEventListener(callListener);
+            Log.d(TAG, "ðŸ‘‹ Call listener removed");
+        }
+        
+        Log.d(TAG, "ðŸ”š IncomingCallActivity destroyed");
+    }
+
+    @Override
+    public void onBackPressed() {
+        // Prevent back button - user must accept or reject
+        Log.d(TAG, "âš ï¸ Back button pressed but ignored");
+        Toast.makeText(this, "Please accept or reject the call", Toast.LENGTH_SHORT).show();
+    }
+}
+
+===== ActiveCallActivity =====
+package com.scan2reachapp.activities;
+
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.scan2reachapp.R;
+import com.scan2reachapp.models.CallHistory;
+import com.scan2reachapp.utils.Constants;
+import com.scan2reachapp.utils.PreferenceManager;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class ActiveCallActivity extends AppCompatActivity {
+
+    private static final String TAG = "ActiveCallActivity";
+    private static final int MAX_CALL_DURATION = 300; // 5 minutes in seconds
+
+    private TextView tvCallerName, tvVehicleNumber, tvCallDuration, tvCallStatus;
+    private Button btnEndCall;
+    private ImageButton btnMute, btnSpeaker;
+
+    private String callId;
+    private String callerName;
+    private String vehicleNumber;
+    private boolean isEmergency;
+
+    private FirebaseFirestore db;
+    private PreferenceManager preferenceManager;
+
+    private long callStartTime;
+    private Handler timerHandler;
+    private Runnable timerRunnable;
+    private int callDuration = 0; // in seconds
+
+    private boolean isMuted = false;
+    private boolean isSpeakerOn = false;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_active_call);
+
+        // Initialize
+        db = FirebaseFirestore.getInstance();
+        preferenceManager = new PreferenceManager(this);
+
+        // Get intent data
+        callId = getIntent().getStringExtra(Constants.EXTRA_CALL_ID);
+        callerName = getIntent().getStringExtra(Constants.EXTRA_CALLER_NAME);
+        vehicleNumber = getIntent().getStringExtra(Constants.EXTRA_VEHICLE_NUMBER);
+        isEmergency = getIntent().getBooleanExtra(Constants.EXTRA_IS_EMERGENCY, false);
+
+        initViews();
+        displayCallInfo();
+        startCallTimer();
+        setupButtons();
+
+        Log.d(TAG, "ðŸ“ž Active call started - ID: " + callId);
+    }
+
+    private void initViews() {
+        tvCallerName = findViewById(R.id.tvCallerName);
+        tvVehicleNumber = findViewById(R.id.tvVehicleNumber);
+        tvCallDuration = findViewById(R.id.tvCallDuration);
+        tvCallStatus = findViewById(R.id.tvCallStatus);
+        btnEndCall = findViewById(R.id.btnEndCall);
+        btnMute = findViewById(R.id.btnMute);
+        btnSpeaker = findViewById(R.id.btnSpeaker);
+    }
+
+    private void displayCallInfo() {
+        tvCallerName.setText(callerName != null ? callerName : "Unknown");
+        
+        if (isEmergency) {
+            tvVehicleNumber.setText("ðŸš¨ EMERGENCY CALL");
+            tvVehicleNumber.setTextColor(0xFFEF4444);
+        } else {
+            tvVehicleNumber.setText(vehicleNumber != null ? vehicleNumber : "Unknown Vehicle");
+        }
+        
+        tvCallStatus.setText("Connected");
+    }
+
+    private void setupButtons() {
+        btnEndCall.setOnClickListener(v -> endCall());
+        
+        btnMute.setOnClickListener(v -> toggleMute());
+        
+        btnSpeaker.setOnClickListener(v -> toggleSpeaker());
+    }
+
+    private void startCallTimer() {
+        callStartTime = System.currentTimeMillis();
+        timerHandler = new Handler(Looper.getMainLooper());
+        
+        timerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                callDuration = (int) ((System.currentTimeMillis() - callStartTime) / 1000);
+                
+                // Update duration display
+                int minutes = callDuration / 60;
+                int seconds = callDuration % 60;
+                tvCallDuration.setText(String.format("%02d:%02d", minutes, seconds));
+                
+                // Check max duration
+                if (callDuration >= MAX_CALL_DURATION) {
+                    Toast.makeText(ActiveCallActivity.this, 
+                        "Maximum call duration reached (5 minutes)", 
+                        Toast.LENGTH_LONG).show();
+                    endCall();
+                    return;
+                }
+                
+                // Run again after 1 second
+                timerHandler.postDelayed(this, 1000);
+            }
+        };
+        
+        timerHandler.post(timerRunnable);
+    }
+
+    private void toggleMute() {
+        isMuted = !isMuted;
+        
+        if (isMuted) {
+            btnMute.setImageResource(R.drawable.ic_mic_off);
+            btnMute.setBackgroundTintList(getResources().getColorStateList(R.color.error));
+            Toast.makeText(this, "Muted", Toast.LENGTH_SHORT).show();
+        } else {
+            btnMute.setImageResource(R.drawable.ic_mic);
+            btnMute.setBackgroundTintList(getResources().getColorStateList(R.color.gray_300));
+            Toast.makeText(this, "Unmuted", Toast.LENGTH_SHORT).show();
+        }
+        
+        // TODO: Implement actual audio mute using WebRTC
+        Log.d(TAG, isMuted ? "ðŸ”‡ Muted" : "ðŸ”Š Unmuted");
+    }
+
+    private void toggleSpeaker() {
+        isSpeakerOn = !isSpeakerOn;
+        
+        if (isSpeakerOn) {
+            btnSpeaker.setImageResource(R.drawable.ic_volume_up);
+            btnSpeaker.setBackgroundTintList(getResources().getColorStateList(R.color.primary));
+            Toast.makeText(this, "Speaker ON", Toast.LENGTH_SHORT).show();
+        } else {
+            btnSpeaker.setImageResource(R.drawable.ic_volume_off);
+            btnSpeaker.setBackgroundTintList(getResources().getColorStateList(R.color.gray_300));
+            Toast.makeText(this, "Speaker OFF", Toast.LENGTH_SHORT).show();
+        }
+        
+        // TODO: Implement actual speaker toggle using AudioManager
+        Log.d(TAG, isSpeakerOn ? "ðŸ”Š Speaker ON" : "ðŸ”‡ Speaker OFF");
+    }
+
+    private void endCall() {
+        Log.d(TAG, "ðŸ“ž Ending call - Duration: " + callDuration + "s");
+        
+        // Stop timer
+        if (timerHandler != null && timerRunnable != null) {
+            timerHandler.removeCallbacks(timerRunnable);
+        }
+        
+        // Update call request
+        updateCallRequest();
+        
+        // Save to call history
+        saveCallHistory();
+        
+        Toast.makeText(this, "Call ended (" + formatDuration(callDuration) + ")", 
+            Toast.LENGTH_SHORT).show();
+        
+        finish();
+    }
+
+    private void updateCallRequest() {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("status", Constants.STATUS_ENDED);
+        updates.put("endedAt", Timestamp.now());
+        updates.put("duration", callDuration);
+        updates.put("endedBy", "receiver");
+
+        db.collection(Constants.COLLECTION_CALL_REQUESTS)
+                .document(callId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "âœ… Call request updated"))
+                .addOnFailureListener(e -> Log.e(TAG, "âŒ Failed to update call request", e));
+    }
+
+    private void saveCallHistory() {
+        String userId = preferenceManager.getUserId();
+        
+        Map<String, Object> history = new HashMap<>();
+        history.put("userId", userId);
+        history.put("callId", callId);
+        history.put("callerName", callerName);
+        history.put("vehicleNumber", vehicleNumber);
+        history.put("callType", isEmergency ? Constants.CALL_TYPE_EMERGENCY : Constants.CALL_TYPE_NORMAL);
+        history.put("duration", callDuration);
+        history.put("status", Constants.STATUS_COMPLETED);
+        history.put("deviceMode", preferenceManager.getDeviceMode());
+        history.put("timestamp", Timestamp.now());
+
+        db.collection(Constants.COLLECTION_CALL_HISTORY)
+                .add(history)
+                .addOnSuccessListener(documentReference -> 
+                    Log.d(TAG, "âœ… Call saved to history: " + documentReference.getId()))
+                .addOnFailureListener(e -> 
+                    Log.e(TAG, "âŒ Failed to save call history", e));
+    }
+
+    private String formatDuration(int seconds) {
+        int minutes = seconds / 60;
+        int secs = seconds % 60;
+        return String.format("%02d:%02d", minutes, secs);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (timerHandler != null && timerRunnable != null) {
+            timerHandler.removeCallbacks(timerRunnable);
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        // Prevent accidental back press - must use end call button
+        Toast.makeText(this, "Use End Call button to finish", Toast.LENGTH_SHORT).show();
+    }
+}
+
+===== CallRequest Model =====
+package com.scan2reachapp.models;
+
+import com.google.firebase.Timestamp;
+
+public class CallRequest {
+    private String callId;
+    private String profileId;
+    private String receiverId; // Owner's userId
+    private String callerName;
+    private String vehicleNumber;
+    private String callType; // "normal" or "emergency"
+    private String status; // "pending", "ringing", "accepted", "rejected", "ended", "missed"
+    private Timestamp createdAt;
+    private Timestamp acceptedAt;
+    private Timestamp endedAt;
+    private int duration; // in seconds
+    private String endedBy; // "caller" or "receiver"
+    private String deviceMode; // "main" or "emergency"
+
+    // Empty constructor
+    public CallRequest() {}
+
+    public CallRequest(String callId, String profileId, String receiverId, 
+                      String callerName, String vehicleNumber, String callType) {
+        this.callId = callId;
+        this.profileId = profileId;
+        this.receiverId = receiverId;
+        this.callerName = callerName;
+        this.vehicleNumber = vehicleNumber;
+        this.callType = callType;
+        this.status = "pending";
+        this.createdAt = Timestamp.now();
+        this.duration = 0;
+    }
+
+    // Getters and Setters
+    public String getCallId() { return callId; }
+    public void setCallId(String callId) { this.callId = callId; }
+
+    public String getProfileId() { return profileId; }
+    public void setProfileId(String profileId) { this.profileId = profileId; }
+
+    public String getReceiverId() { return receiverId; }
+    public void setReceiverId(String receiverId) { this.receiverId = receiverId; }
+
+    public String getCallerName() { return callerName; }
+    public void setCallerName(String callerName) { this.callerName = callerName; }
+
+    public String getVehicleNumber() { return vehicleNumber; }
+    public void setVehicleNumber(String vehicleNumber) { this.vehicleNumber = vehicleNumber; }
+
+    public String getCallType() { return callType; }
+    public void setCallType(String callType) { this.callType = callType; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public Timestamp getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
+
+    public Timestamp getAcceptedAt() { return acceptedAt; }
+    public void setAcceptedAt(Timestamp acceptedAt) { this.acceptedAt = acceptedAt; }
+
+    public Timestamp getEndedAt() { return endedAt; }
+    public void setEndedAt(Timestamp endedAt) { this.endedAt = endedAt; }
+
+    public int getDuration() { return duration; }
+    public void setDuration(int duration) { this.duration = duration; }
+
+    public String getEndedBy() { return endedBy; }
+    public void setEndedBy(String endedBy) { this.endedBy = endedBy; }
+
+    public String getDeviceMode() { return deviceMode; }
+    public void setDeviceMode(String deviceMode) { this.deviceMode = deviceMode; }
+
+    // Helper methods
+    public boolean isEmergency() {
+        return "emergency".equals(callType);
+    }
+
+    public boolean isActive() {
+        return "pending".equals(status) || "ringing".equals(status) || "accepted".equals(status);
+    }
+
+    public String getFormattedDuration() {
+        if (duration == 0) return "00:00";
+        int minutes = duration / 60;
+        int seconds = duration % 60;
+        return String.format("%02d:%02d", minutes, seconds);
+    }
+}
+
+===== MainActivity =====
+package com.scan2reachapp.activities;
+
+import android.content.ComponentName;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Build;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.firebase.Timestamp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.scan2reachapp.R;
+import com.scan2reachapp.services.CallListenerService;
+import com.scan2reachapp.adapters.CallHistoryAdapter;
+import com.scan2reachapp.models.CallHistory;
+import com.scan2reachapp.utils.Constants;
+import com.scan2reachapp.utils.PermissionHelper;
+import com.scan2reachapp.utils.PreferenceManager;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class MainActivity extends AppCompatActivity {
+
+    private static final String TAG = "MainActivity";
+
+    private TextView tvWelcome, tvDeviceMode, tvRecentCallsTitle;
+    private Button btnSwitchMode, btnViewHistory;
+    private RecyclerView rvRecentCalls;
+    private View emptyView;
+
+    private PreferenceManager preferenceManager;
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
+    
+    private CallHistoryAdapter callHistoryAdapter;
+    private List<CallHistory> recentCalls;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        preferenceManager = new PreferenceManager(this);
+        mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
+        recentCalls = new ArrayList<>();
+
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        initViews();
+        checkPermissions();
+        displayUserInfo();
+        loadRecentCalls();
+        setupListeners();
+        updateDeviceStatus();
+        startCallListenerService();
+        handleDeepLink();
+        checkFcmToken();
+        requestBatteryOptimizationExemption();
+        requestAutoStartPermission();
+    }
+
+    private void initViews() {
+        tvWelcome = findViewById(R.id.tvWelcome);
+        tvDeviceMode = findViewById(R.id.tvDeviceMode);
+        tvRecentCallsTitle = findViewById(R.id.tvRecentCallsTitle);
+        btnSwitchMode = findViewById(R.id.btnSwitchMode);
+        btnViewHistory = findViewById(R.id.btnViewHistory);
+        rvRecentCalls = findViewById(R.id.rvRecentCalls);
+        emptyView = findViewById(R.id.emptyView);
+
+        rvRecentCalls.setLayoutManager(new LinearLayoutManager(this));
+        callHistoryAdapter = new CallHistoryAdapter(this, recentCalls);
+        rvRecentCalls.setAdapter(callHistoryAdapter);
+    }
+
+    private void setupListeners() {
+        btnSwitchMode.setOnClickListener(v -> showSwitchModeDialog());
+        btnViewHistory.setOnClickListener(v -> {
+            startActivity(new Intent(this, CallHistoryActivity.class));
+        });
+    }
+
+    private void checkPermissions() {
+        if (!PermissionHelper.hasAllPermissions(this)) {
+            PermissionHelper.requestPermissions(this);
+        }
+    }
+
+    private void displayUserInfo() {
+        String userName = preferenceManager.getUserName();
+        tvWelcome.setText("Welcome, " + userName);
+
+        String mode = preferenceManager.getDeviceMode();
+        String modeText = mode.equals(Constants.MODE_MAIN) ? 
+            "MAIN DEVICE" : "EMERGENCY DEVICE";
+        tvDeviceMode.setText(modeText);
+    }
+
+    private void loadRecentCalls() {
+        String userId = preferenceManager.getUserId();
+
+        db.collection(Constants.COLLECTION_CALL_HISTORY)
+                .whereEqualTo("userId", userId)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(5)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    recentCalls.clear();
+                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                        CallHistory call = doc.toObject(CallHistory.class);
+                        call.setHistoryId(doc.getId());
+                        recentCalls.add(call);
+                    }
+
+                    if (recentCalls.isEmpty()) {
+                        rvRecentCalls.setVisibility(View.GONE);
+                        emptyView.setVisibility(View.VISIBLE);
+                    } else {
+                        rvRecentCalls.setVisibility(View.VISIBLE);
+                        emptyView.setVisibility(View.GONE);
+                        callHistoryAdapter.notifyDataSetChanged();
+                    }
+
+                    Log.d(TAG, "Loaded " + recentCalls.size() + " recent calls");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading calls", e);
+                    rvRecentCalls.setVisibility(View.GONE);
+                    emptyView.setVisibility(View.VISIBLE);
+                });
+    }
+
+    private void showSwitchModeDialog() {
+        String currentMode = preferenceManager.getDeviceMode();
+        String newMode = currentMode.equals(Constants.MODE_MAIN) ? 
+            Constants.MODE_EMERGENCY : Constants.MODE_MAIN;
+
+        new AlertDialog.Builder(this)
+                .setTitle("Switch Device Mode")
+                .setMessage("Switch from " + currentMode.toUpperCase() + " to " + newMode.toUpperCase() + " mode?")
+                .setPositiveButton("Switch", (dialog, which) -> switchDeviceMode(newMode))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void switchDeviceMode(String newMode) {
+        btnSwitchMode.setEnabled(false);
+        btnSwitchMode.setText("Switching...");
+
+        String userId = preferenceManager.getUserId();
+        String deviceId = preferenceManager.getDeviceId();
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("devices." + newMode + ".deviceId", deviceId);
+        updates.put("devices." + newMode + ".mode", newMode);
+        updates.put("devices." + newMode + ".lastActive", Timestamp.now());
+        updates.put("updatedAt", Timestamp.now());
+
+        db.collection(Constants.COLLECTION_USERS)
+                .document(userId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Mode switched to: " + newMode);
+                    preferenceManager.saveDeviceMode(newMode);
+                    Toast.makeText(this, Constants.SUCCESS_MODE_SWITCHED, Toast.LENGTH_SHORT).show();
+                    displayUserInfo();
+                    btnSwitchMode.setEnabled(true);
+                    btnSwitchMode.setText("Switch Mode");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error switching mode", e);
+                    btnSwitchMode.setEnabled(true);
+                    btnSwitchMode.setText("Switch Mode");
+                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+    }
+
+    private void handleDeepLink() {
+        Intent intent = getIntent();
+        Uri data = intent.getData();
+        
+        if (data != null && data.toString().contains("vehicle-profile")) {
+            String profileId = data.getQueryParameter("id");
+            if (profileId != null) {
+                Log.d(TAG, "Deep link received - Profile ID: " + profileId);
+                initiateCallFromDeepLink(profileId);
+            }
+        }
+    }
+    
+    private void initiateCallFromDeepLink(String profileId) {
+        db.collection(Constants.COLLECTION_PROFILES)
+                .document(profileId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String ownerId = documentSnapshot.getString("userId");
+                        String ownerName = documentSnapshot.getString("ownerName");
+                        String vehicleNumber = documentSnapshot.getString("vehicleNumber");
+                        String productType = documentSnapshot.getString("productType");
+                        
+                        boolean isEmergency = Constants.MODE_EMERGENCY.equals(
+                            preferenceManager.getDeviceMode());
+                        
+                        createCallRequest(profileId, ownerId, ownerName, vehicleNumber, 
+                                        productType, isEmergency);
+                    } else {
+                        Toast.makeText(this, "Profile not found", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error fetching profile", e);
+                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+    
+    private void createCallRequest(String profileId, String ownerId, String ownerName,
+                                  String vehicleNumber, String productType, boolean isEmergency) {
+        String callerId = preferenceManager.getUserId();
+        String callerName = preferenceManager.getUserName();
+        String callerPhone = preferenceManager.getUserPhone();
+        
+        String callId = db.collection("callRequests").document().getId();
+        
+        Map<String, Object> callData = new HashMap<>();
+        callData.put("callerId", callerId);
+        callData.put("callerName", callerName);
+        callData.put("callerPhone", callerPhone != null ? callerPhone : "");
+        callData.put("receiverId", ownerId);
+        callData.put("receiverName", ownerName);
+        callData.put("vehicleNumber", vehicleNumber);
+        callData.put("profileId", profileId);
+        callData.put("productType", productType);
+        callData.put("isEmergency", isEmergency);
+        callData.put("status", "ringing");
+        callData.put("timestamp", System.currentTimeMillis());
+        
+        FirebaseDatabase database = FirebaseDatabase.getInstance(Constants.FIREBASE_DATABASE_URL);
+        
+        database.getReference("calls")
+            .child(ownerId)
+            .child(callId)
+            .setValue(callData)
+            .addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "âœ… Call created in RTDB: " + callId);
+                Toast.makeText(this, "Calling " + ownerName + "...", Toast.LENGTH_SHORT).show();
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "âŒ Failed to create call", e);
+                Toast.makeText(this, "Failed to initiate call", Toast.LENGTH_SHORT).show();
+            });
+    }
+    
+    private void startCallListenerService() {
+        Intent serviceIntent = new Intent(this, CallListenerService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
+        Log.d(TAG, "Call listener service started");
+    }
+
+    private void updateDeviceStatus() {
+        String userId = preferenceManager.getUserId();
+        String mode = preferenceManager.getDeviceMode();
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("devices." + mode + ".lastActive", Timestamp.now());
+
+        db.collection(Constants.COLLECTION_USERS)
+                .document(userId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Device status updated"))
+                .addOnFailureListener(e -> Log.e(TAG, "Failed to update status", e));
+    }
+
+    private void checkFcmToken() {
+        FirebaseMessaging.getInstance().getToken()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    String token = task.getResult();
+                    Log.d(TAG, "ðŸ”‘ FCM Token: " + token);
+                    
+                    db.collection("fcmTokens")
+                        .document(token)
+                        .get()
+                        .addOnSuccessListener(doc -> {
+                            if (doc.exists()) {
+                                String userId = doc.getString("userId");
+                                Log.d(TAG, "âœ… Token in Firestore - UserId: " + userId);
+                            } else {
+                                Log.e(TAG, "âŒ TOKEN NOT IN FIRESTORE - Saving now");
+                                saveFcmTokenNow(token);
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "âŒ Error checking token", e);
+                            saveFcmTokenNow(token);
+                        });
+                } else {
+                    Log.e(TAG, "âŒ Failed to get FCM token", task.getException());
+                }
+            });
+    }
+
+    private void saveFcmTokenNow(String token) {
+        String userId = preferenceManager.getUserId();
+        
+        Map<String, Object> tokenData = new HashMap<>();
+        tokenData.put("userId", userId);
+        tokenData.put("token", token);
+        tokenData.put("deviceMode", preferenceManager.getDeviceMode());
+        tokenData.put("deviceInfo", getDeviceInfo());
+        tokenData.put("createdAt", FieldValue.serverTimestamp());
+        tokenData.put("updatedAt", FieldValue.serverTimestamp());
+        
+        db.collection("fcmTokens")
+            .document(token)
+            .set(tokenData)
+            .addOnSuccessListener(aVoid -> Log.d(TAG, "âœ… FCM token saved to Firestore"))
+            .addOnFailureListener(e -> Log.e(TAG, "âŒ Failed to save token: " + e.getMessage()));
+    }
+
+    private Map<String, Object> getDeviceInfo() {
+        Map<String, Object> info = new HashMap<>();
+        info.put("manufacturer", Build.MANUFACTURER);
+        info.put("model", Build.MODEL);
+        info.put("sdkVersion", Build.VERSION.SDK_INT);
+        info.put("osVersion", Build.VERSION.RELEASE);
+        return info;
+    }
+
+    private void requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            String packageName = getPackageName();
+            
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                Log.d(TAG, "âš ï¸ Battery optimization is ON");
+                
+                boolean hasAskedBefore = preferenceManager.getBoolean("battery_permission_asked");
+                
+                if (!hasAskedBefore) {
+                    new AlertDialog.Builder(this)
+                        .setTitle("Important for Calls")
+                        .setMessage("To receive calls when app is closed, please disable battery optimization.")
+                        .setPositiveButton("Allow", (dialog, which) -> {
+                            try {
+                                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                                intent.setData(Uri.parse("package:" + packageName));
+                                startActivity(intent);
+                                preferenceManager.saveBoolean("battery_permission_asked", true);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error opening battery settings", e);
+                                Toast.makeText(this, "Please disable battery optimization manually", Toast.LENGTH_LONG).show();
+                            }
+                        })
+                        .setNegativeButton("Later", (dialog, which) -> {
+                            preferenceManager.saveBoolean("battery_permission_asked", true);
+                        })
+                        .setCancelable(false)
+                        .show();
+                }
+            } else {
+                Log.d(TAG, "âœ… Battery optimization already disabled");
+            }
+        }
+    }
+
+    private void requestAutoStartPermission() {
+        try {
+            String manufacturer = Build.MANUFACTURER.toLowerCase();
+            Intent intent = null;
+            
+            if (manufacturer.contains("xiaomi") || manufacturer.contains("redmi")) {
+                intent = new Intent();
+                intent.setComponent(new ComponentName("com.miui.securitycenter", 
+                    "com.miui.permcenter.autostart.AutoStartManagementActivity"));
+            } else if (manufacturer.contains("oppo")) {
+                intent = new Intent();
+                intent.setComponent(new ComponentName("com.coloros.safecenter", 
+                    "com.coloros.safecenter.permission.startup.StartupAppListActivity"));
+            } else if (manufacturer.contains("vivo")) {
+                intent = new Intent();
+                intent.setComponent(new ComponentName("com.vivo.permissionmanager", 
+                    "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"));
+            } else if (manufacturer.contains("huawei") || manufacturer.contains("honor")) {
+                intent = new Intent();
+                intent.setComponent(new ComponentName("com.huawei.systemmanager", 
+                    "com.huawei.systemmanager.startupmgr.StartupNormalAppListActivity"));
+            } else if (manufacturer.contains("samsung")) {
+                intent = new Intent();
+                intent.setComponent(new ComponentName("com.samsung.android.lool", 
+                    "com.samsung.android.sm.ui.battery.BatteryActivity"));
+            }
+            
+            if (intent != null) {
+                boolean hasAskedAutostart = preferenceManager.getBoolean("autostart_permission_asked");
+                
+                if (!hasAskedAutostart) {
+                    final Intent finalIntent = intent;
+                    new AlertDialog.Builder(this)
+                        .setTitle("Enable Auto-Start")
+                        .setMessage("Please enable Auto-Start for Scan2Reach to receive calls when app is closed.")
+                        .setPositiveButton("Open Settings", (dialog, which) -> {
+                            try {
+                                startActivity(finalIntent);
+                                preferenceManager.saveBoolean("autostart_permission_asked", true);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Cannot open autostart settings", e);
+                                Toast.makeText(this, "Please enable auto-start manually", Toast.LENGTH_LONG).show();
+                                preferenceManager.saveBoolean("autostart_permission_asked", true);
+                            }
+                        })
+                        .setNegativeButton("Later", (dialog, which) -> {
+                            preferenceManager.saveBoolean("autostart_permission_asked", true);
+                        })
+                        .show();
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking autostart", e);
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+
+        if (id == R.id.action_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        } else if (id == R.id.action_profiles) {
+            startActivity(new Intent(this, ProfilesActivity.class));
+            return true;
+        } else if (id == R.id.action_logout) {
+            logout();
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void logout() {
+        new AlertDialog.Builder(this)
+                .setTitle("Logout")
+                .setMessage("Are you sure you want to logout?")
+                .setPositiveButton("Logout", (dialog, which) -> {
+                    mAuth.signOut();
+                    preferenceManager.logout();
+                    Toast.makeText(this, Constants.SUCCESS_LOGOUT, Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadRecentCalls();
+        updateDeviceStatus();
+        Log.d(TAG, "ðŸ”„ onResume");
+        startCallListenerService();
+        checkFcmToken();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == Constants.REQUEST_CODE_PERMISSIONS) {
+            if (!PermissionHelper.hasAllPermissions(this)) {
+                Toast.makeText(this, "Some permissions are required for calls", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+}
+
+===== PreferenceManager =====
+package com.scan2reachapp.utils;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+
+public class PreferenceManager {
+    
+    private final SharedPreferences prefs;
+    private final SharedPreferences.Editor editor;
+
+    public PreferenceManager(Context context) {
+        prefs = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
+        editor = prefs.edit();
+    }
+
+    // Generic save methods
+    public void saveString(String key, String value) {
+        editor.putString(key, value);
+        editor.apply();
+    }
+
+    public String getString(String key) {
+        return prefs.getString(key, null);
+    }
+
+    public void saveBoolean(String key, boolean value) {
+        editor.putBoolean(key, value);
+        editor.apply();
+    }
+
+    public boolean getBoolean(String key) {
+        return prefs.getBoolean(key, false);
+    }
+
+    public void saveInt(String key, int value) {
+        editor.putInt(key, value);
+        editor.apply();
+    }
+
+    public int getInt(String key) {
+        return prefs.getInt(key, 0);
+    }
+
+    public void saveLong(String key, long value) {
+        editor.putLong(key, value);
+        editor.apply();
+    }
+
+    public long getLong(String key) {
+        return prefs.getLong(key, 0L);
+    }
+
+    // User session methods
+    public void saveUserSession(String userId, String email, String name, String phone) {
+        editor.putString(Constants.PREF_USER_ID, userId);
+        editor.putString(Constants.PREF_USER_EMAIL, email);
+        editor.putString(Constants.PREF_USER_NAME, name);
+        editor.putString(Constants.PREF_USER_PHONE, phone);
+        editor.putBoolean(Constants.PREF_IS_LOGGED_IN, true);
+        editor.apply();
+    }
+
+    public boolean isLoggedIn() {
+        return prefs.getBoolean(Constants.PREF_IS_LOGGED_IN, false);
+    }
+
+    public String getUserId() {
+        return prefs.getString(Constants.PREF_USER_ID, null);
+    }
+
+    public String getUserEmail() {
+        return prefs.getString(Constants.PREF_USER_EMAIL, null);
+    }
+
+    public String getUserName() {
+        return prefs.getString(Constants.PREF_USER_NAME, "User");
+    }
+
+    public String getUserPhone() {
+        return prefs.getString(Constants.PREF_USER_PHONE, null);
+    }
+
+    // Device mode methods
+    public void saveDeviceMode(String mode) {
+        editor.putString(Constants.PREF_DEVICE_MODE, mode);
+        editor.apply();
+    }
+
+    public String getDeviceMode() {
+        return prefs.getString(Constants.PREF_DEVICE_MODE, Constants.MODE_MAIN);
+    }
+
+    public boolean isMainDevice() {
+        return Constants.MODE_MAIN.equals(getDeviceMode());
+    }
+
+    public boolean isEmergencyDevice() {
+        return Constants.MODE_EMERGENCY.equals(getDeviceMode());
+    }
+
+    // Device ID methods
+    public void saveDeviceId(String deviceId) {
+        editor.putString(Constants.PREF_DEVICE_ID, deviceId);
+        editor.apply();
+    }
+
+    public String getDeviceId() {
+        return prefs.getString(Constants.PREF_DEVICE_ID, null);
+    }
+
+    // FCM token methods
+    public void saveFcmToken(String token) {
+        editor.putString(Constants.PREF_FCM_TOKEN, token);
+        editor.apply();
+    }
+
+    public String getFcmToken() {
+        return prefs.getString(Constants.PREF_FCM_TOKEN, null);
+    }
+
+    // First time check
+    public boolean isFirstTime() {
+        return prefs.getBoolean(Constants.PREF_FIRST_TIME, true);
+    }
+
+    public void setFirstTimeDone() {
+        editor.putBoolean(Constants.PREF_FIRST_TIME, false);
+        editor.apply();
+    }
+
+    // Clear all data
+    public void clearAll() {
+        editor.clear();
+        editor.apply();
+    }
+
+    // Logout
+    public void logout() {
+        String deviceId = getDeviceId(); // Preserve device ID
+        clearAll();
+        if (deviceId != null) {
+            saveDeviceId(deviceId); // Restore device ID
+        }
+    }
+}
+
+===== MyFirebaseMessagingService =====
+package com.scan2reachapp.services;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.media.RingtoneManager;
+import android.os.Build;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
+import com.scan2reachapp.R;
+import com.scan2reachapp.activities.IncomingCallActivity;
+import com.scan2reachapp.utils.Constants;
+import com.scan2reachapp.utils.PreferenceManager;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class MyFirebaseMessagingService extends FirebaseMessagingService {
+
+    private static final String TAG = "FCMService";
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannels();
+        Log.d(TAG, "ðŸ”¥ FCM Service created");
+    }
+
+    @Override
+    public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
+        super.onMessageReceived(remoteMessage);
+
+        Log.d(TAG, "ðŸ“© FCM Message received!");
+        Log.d(TAG, "From: " + remoteMessage.getFrom());
+        Log.d(TAG, "Message ID: " + remoteMessage.getMessageId());
+
+        if (remoteMessage.getData().size() > 0) {
+            Log.d(TAG, "ðŸ“¦ Data payload: " + remoteMessage.getData());
+            handleDataMessage(remoteMessage.getData());
+        }
+
+        if (remoteMessage.getNotification() != null) {
+            Log.d(TAG, "ðŸ”” Notification: " + remoteMessage.getNotification().getBody());
+        }
+    }
+
+    private void handleDataMessage(Map<String, String> data) {
+        String type = data.get("type");
+        
+        Log.d(TAG, "ðŸ“ž Message type: " + type);
+
+        if ("incoming_call".equals(type)) {
+            String callId = data.get("callId");
+            String listenedUserId = data.get("listenedUserId");
+            String callerName = data.get("callerName");
+            String vehicleNumber = data.get("vehicleNumber");
+            boolean isEmergency = "true".equals(data.get("isEmergency"));
+
+            Log.d(TAG, "ðŸ“ž ========== INCOMING CALL ==========");
+            Log.d(TAG, "CallID: " + callId);
+            Log.d(TAG, "Caller: " + callerName);
+            Log.d(TAG, "Vehicle: " + vehicleNumber);
+            Log.d(TAG, "Emergency: " + isEmergency);
+            Log.d(TAG, "ListenedUserId: " + listenedUserId);
+
+            // ðŸ”¥ CHECK DEVICE MODE FILTER
+            PreferenceManager prefs = new PreferenceManager(this);
+            String deviceMode = prefs.getDeviceMode();
+            
+            Log.d(TAG, "ðŸ“± Device Mode: " + deviceMode);
+            Log.d(TAG, "ðŸš¨ Is Emergency Call: " + isEmergency);
+
+            // ðŸ”¥ FILTERING LOGIC:
+            // - MAIN device: Receives ALL calls (normal + emergency)
+            // - EMERGENCY device: Receives ONLY emergency calls
+            
+            if (Constants.MODE_EMERGENCY.equals(deviceMode)) {
+                // This is EMERGENCY device
+                if (!isEmergency) {
+                    // Normal call on emergency device - SKIP
+                    Log.d(TAG, "â­ï¸ SKIPPING: Normal call on EMERGENCY device");
+                    return;
+                } else {
+                    Log.d(TAG, "âœ… ALLOWING: Emergency call on EMERGENCY device");
+                }
+            } else {
+                // This is MAIN device - receive all calls
+                Log.d(TAG, "âœ… ALLOWING: Call on MAIN device (receives all)");
+            }
+
+            Log.d(TAG, "ðŸ”” Showing incoming call screen...");
+            Log.d(TAG, "=====================================");
+
+            // Launch incoming call activity
+            showIncomingCallActivity(callId, listenedUserId, callerName, vehicleNumber, isEmergency);
+            
+        } else if ("profile_view".equals(type)) {
+            Log.d(TAG, "ðŸ‘€ Profile view notification");
+        } else if ("emergency".equals(type)) {
+            Log.d(TAG, "ðŸš¨ Emergency notification");
+        } else {
+            Log.d(TAG, "â„¹ï¸ Unknown notification type: " + type);
+        }
+    }
+
+    private void showIncomingCallActivity(String callId, String listenedUserId, 
+                                          String callerName, String vehicleNumber, 
+                                          boolean isEmergency) {
+        
+        Intent intent = new Intent(this, IncomingCallActivity.class);
+        
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | 
+                       Intent.FLAG_ACTIVITY_CLEAR_TOP |
+                       Intent.FLAG_ACTIVITY_SINGLE_TOP |
+                       Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+        
+        intent.putExtra(Constants.EXTRA_CALL_ID, callId);
+        intent.putExtra(Constants.EXTRA_CALLER_NAME, callerName);
+        intent.putExtra(Constants.EXTRA_VEHICLE_NUMBER, vehicleNumber);
+        intent.putExtra(Constants.EXTRA_IS_EMERGENCY, isEmergency);
+        intent.putExtra("listenedUserId", listenedUserId);
+
+        try {
+            startActivity(intent);
+            Log.d(TAG, "âœ… Incoming call activity launched");
+        } catch (Exception e) {
+            Log.e(TAG, "âŒ Failed to launch activity", e);
+            showCallNotification(callId, callerName, vehicleNumber, isEmergency);
+        }
+    }
+
+    private void showCallNotification(String callId, String callerName, 
+                                      String vehicleNumber, boolean isEmergency) {
+        Intent intent = new Intent(this, IncomingCallActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.putExtra(Constants.EXTRA_CALL_ID, callId);
+        intent.putExtra(Constants.EXTRA_CALLER_NAME, callerName);
+        intent.putExtra(Constants.EXTRA_VEHICLE_NUMBER, vehicleNumber);
+        intent.putExtra(Constants.EXTRA_IS_EMERGENCY, isEmergency);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        String channelId = isEmergency ? "emergency_calls" : Constants.CHANNEL_ID_CALLS;
+        
+        NotificationCompat.Builder notificationBuilder =
+            new NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(isEmergency ? "ðŸš¨ EMERGENCY CALL" : "ðŸ“ž Incoming Call")
+                .setContentText(callerName + " - " + vehicleNumber)
+                .setAutoCancel(true)
+                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setFullScreenIntent(pendingIntent, true)
+                .setVibrate(new long[]{0, 1000, 500, 1000});
+
+        NotificationManager notificationManager =
+            (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
+        notificationManager.notify(Constants.NOTIFICATION_ID_INCOMING_CALL, 
+                                   notificationBuilder.build());
+        
+        Log.d(TAG, "ðŸ“£ Notification shown as fallback");
+    }
+
+    private void createNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            
+            NotificationChannel callChannel = new NotificationChannel(
+                Constants.CHANNEL_ID_CALLS,
+                "Incoming Calls",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            callChannel.setDescription("Notifications for incoming calls");
+            callChannel.enableVibration(true);
+            callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            callChannel.setBypassDnd(true);
+            callChannel.setSound(
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
+                null
+            );
+            
+            NotificationChannel emergencyChannel = new NotificationChannel(
+                "emergency_calls",
+                "Emergency Calls",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            emergencyChannel.setDescription("Emergency call notifications");
+            emergencyChannel.enableVibration(true);
+            emergencyChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            emergencyChannel.setBypassDnd(true);
+            emergencyChannel.setSound(
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
+                null
+            );
+            
+            NotificationChannel profileChannel = new NotificationChannel(
+                "profile_activity",
+                "Profile Activity",
+                NotificationManager.IMPORTANCE_DEFAULT
+            );
+            profileChannel.setDescription("Profile views and interactions");
+            
+            manager.createNotificationChannel(callChannel);
+            manager.createNotificationChannel(emergencyChannel);
+            manager.createNotificationChannel(profileChannel);
+            
+            Log.d(TAG, "âœ… Notification channels created");
+        }
+    }
+
+    @Override
+    public void onNewToken(@NonNull String token) {
+        super.onNewToken(token);
+        Log.d(TAG, "ðŸ”‘ New FCM token generated");
+
+        PreferenceManager prefs = new PreferenceManager(this);
+        prefs.saveFcmToken(token);
+
+        sendTokenToServer(token);
+    }
+
+    private void sendTokenToServer(String token) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        
+        if (user == null) {
+            Log.d(TAG, "âš ï¸ User not logged in, token saved locally only");
+            return;
+        }
+
+        String userId = user.getUid();
+        PreferenceManager prefs = new PreferenceManager(this);
+        
+        Map<String, Object> tokenData = new HashMap<>();
+        tokenData.put("userId", userId);
+        tokenData.put("token", token);
+        tokenData.put("deviceMode", prefs.getDeviceMode()); // ðŸ”¥ Include device mode
+        tokenData.put("deviceInfo", getDeviceInfo());
+        tokenData.put("createdAt", FieldValue.serverTimestamp());
+        tokenData.put("updatedAt", FieldValue.serverTimestamp());
+        
+        FirebaseFirestore.getInstance()
+            .collection("fcmTokens")
+            .document(token)
+            .set(tokenData)
+            .addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "âœ… FCM token saved to Firestore");
+                Log.d(TAG, "UserId: " + userId);
+                Log.d(TAG, "DeviceMode: " + prefs.getDeviceMode());
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "âŒ Failed to save token to Firestore", e);
+            });
+    }
+
+    private Map<String, Object> getDeviceInfo() {
+        Map<String, Object> info = new HashMap<>();
+        info.put("manufacturer", Build.MANUFACTURER);
+        info.put("model", Build.MODEL);
+        info.put("sdkVersion", Build.VERSION.SDK_INT);
+        info.put("osVersion", Build.VERSION.RELEASE);
+        info.put("timestamp", System.currentTimeMillis());
+        return info;
+    }
+
+    @Override
+    public void onDeletedMessages() {
+        super.onDeletedMessages();
+        Log.d(TAG, "âš ï¸ Messages deleted on server");
+    }
+
+    @Override
+    public void onMessageSent(@NonNull String msgId) {
+        super.onMessageSent(msgId);
+        Log.d(TAG, "âœ… Message sent: " + msgId);
+    }
+
+    @Override
+    public void onSendError(@NonNull String msgId, @NonNull Exception exception) {
+        super.onSendError(msgId, exception);
+        Log.e(TAG, "âŒ Send error for message: " + msgId, exception);
+    }
+}
+
+===== vehicle-profile.html =====
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Contact - Scan2Reach</title>
+    <meta name="description" content="Contact vehicle owner instantly via Scan2Reach QR code">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="robots" content="noindex, nofollow">
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>ðŸš—</text></svg>">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #1e40af;
+            --primary-dark: #1e3a8a;
+            --primary-light: #3b82f6;
+            --secondary: #7c3aed;
+            --success: #10b981;
+            --success-dark: #059669;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-dark: #dc2626;
+            
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            
+            --shadow-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.2);
+            --shadow-xl: 0 20px 40px -6px rgba(0, 0, 0, 0.3);
+            --shadow-2xl: 0 25px 60px -12px rgba(0, 0, 0, 0.5);
+            
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-2xl: 24px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #1e293b 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            color: var(--gray-900);
+            line-height: 1.6;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .vehicle-container {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: var(--shadow-2xl);
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+            animation: slideUp 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .loading {
+            padding: 5rem 2rem;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 70px;
+            height: 70px;
+            border: 5px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--gray-600);
+            font-weight: 600;
+            font-size: 1.05rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .loading-subtext {
+            color: var(--gray-400);
+            font-size: 0.9rem;
+        }
+
+        .error {
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 4.5rem;
+            margin-bottom: 1.25rem;
+            display: block;
+        }
+
+        .error h2 {
+            color: var(--danger);
+            margin-bottom: 0.875rem;
+            font-size: 1.75rem;
+            font-weight: 800;
+        }
+
+        .error p {
+            color: var(--gray-500);
+            font-size: 1.05rem;
+            line-height: 1.7;
+            margin-bottom: 1.75rem;
+        }
+
+        .error-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.625rem;
+            padding: 1rem 1.75rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .error-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-3px);
+        }
+
+        .hide {
+            display: none !important;
+        }
+
+        .vehicle-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            padding: 2.75rem 2rem 2.5rem;
+            text-align: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .vehicle-header::before {
+            content: '';
+            position: absolute;
+            top: -60%;
+            left: -60%;
+            width: 220%;
+            height: 220%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
+            animation: shimmer 6s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-35px, -35px); }
+        }
+
+        .vehicle-icon {
+            font-size: 5.5rem;
+            filter: drop-shadow(0 6px 18px rgba(0,0,0,0.3));
+            animation: float 4s ease-in-out infinite;
+            position: relative;
+            z-index: 1;
+            margin-bottom: 1.5rem;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-14px); }
+        }
+
+        .vehicle-number {
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 0.625rem;
+            letter-spacing: 3.5px;
+            text-shadow: 0 3px 12px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            word-break: break-word;
+        }
+
+        .vehicle-label {
+            font-size: 0.95rem;
+            opacity: 0.95;
+            font-weight: 600;
+            letter-spacing: 1.75px;
+            text-transform: uppercase;
+            position: relative;
+            z-index: 1;
+        }
+
+        .vehicle-body {
+            padding: 2rem 1.75rem;
+        }
+
+        .emergency-notice {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 3px solid var(--warning);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.75rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 1.125rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .emergency-icon {
+            font-size: 2.25rem;
+            flex-shrink: 0;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        .emergency-text {
+            flex: 1;
+            color: #92400e;
+            font-weight: 600;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .emergency-text strong {
+            display: block;
+            font-size: 1.05rem;
+            margin-bottom: 0.375rem;
+            color: #78350f;
+            font-weight: 800;
+        }
+
+        .contact-section-title {
+            text-align: center;
+            color: var(--gray-800);
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .contact-buttons {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .contact-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 1.4rem 1.75rem;
+            border-radius: var(--radius-lg);
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 1.15rem;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            font-family: inherit;
+        }
+
+        .contact-btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-icon {
+            font-size: 1.75rem;
+        }
+
+        .btn-call {
+            background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+            color: white;
+            box-shadow: 0 5px 16px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-call:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 28px rgba(16, 185, 129, 0.5);
+        }
+
+        .btn-emergency {
+            background: linear-gradient(135deg, var(--danger) 0%, var(--danger-dark) 100%);
+            color: white;
+            box-shadow: 0 5px 16px rgba(239, 68, 68, 0.4);
+            animation: emergencyPulse 2s ease-in-out infinite;
+        }
+
+        .btn-emergency:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 28px rgba(239, 68, 68, 0.5);
+        }
+
+        @keyframes emergencyPulse {
+            0%, 100% { box-shadow: 0 5px 16px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 5px 25px rgba(239, 68, 68, 0.7); }
+        }
+
+        .no-contact {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--danger);
+            font-weight: 700;
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+
+        .no-contact-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1.25rem;
+            display: block;
+        }
+
+        .inactive-profile {
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .inactive-icon {
+            font-size: 4rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .inactive-title {
+            color: var(--gray-800);
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+        }
+
+        .inactive-text {
+            color: var(--gray-500);
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        .expired-banner {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #b91c1c;
+            padding: 1.5rem 1.75rem;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1rem;
+            display: none;
+            border-bottom: 4px solid var(--danger);
+        }
+
+        .expired-banner.visible {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.625rem;
+        }
+
+        .vehicle-footer {
+            text-align: center;
+            padding: 1.75rem 2rem 2rem;
+            border-top: 2px solid var(--gray-100);
+            background: var(--gray-50);
+        }
+
+        .powered-by {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.375rem;
+        }
+
+        .brand {
+            color: var(--primary);
+            font-size: 1.25rem;
+            font-weight: 900;
+            text-decoration: none;
+        }
+
+        .brand:hover {
+            color: var(--primary-dark);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%) translateY(120px);
+            background: var(--gray-800);
+            color: white;
+            padding: 1.125rem 1.75rem;
+            border-radius: var(--radius-lg);
+            font-weight: 700;
+            font-size: 0.95rem;
+            box-shadow: var(--shadow-2xl);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            max-width: 90%;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.warning { background: var(--warning); color: var(--gray-900); }
+
+        /* CALLING MODAL */
+        .call-modal {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .call-modal.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .call-modal.emergency {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        }
+
+        .call-modal.connected {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+
+        .call-content {
+            text-align: center;
+            color: white;
+            padding: 2rem;
+            max-width: 400px;
+        }
+
+        .call-avatar-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin: 0 auto 2rem;
+        }
+
+        .call-avatar {
+            width: 140px;
+            height: 140px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .call-pulse {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            animation: pulse-ring 1.5s ease-out infinite;
+        }
+
+        .call-pulse.stop {
+            animation: none;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.3);
+                opacity: 0;
+            }
+        }
+
+        .call-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .call-subtitle {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            margin-bottom: 3rem;
+        }
+
+        .call-end-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 3px solid white;
+            font-size: 1.75rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            font-family: inherit;
+        }
+
+        .call-end-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 15px;
+                align-items: flex-start;
+                padding-top: 25px;
+            }
+
+            .vehicle-container {
+                border-radius: 28px;
+            }
+
+            .vehicle-header {
+                padding: 2.25rem 1.75rem 2rem;
+            }
+
+            .vehicle-number {
+                font-size: 2rem;
+                letter-spacing: 2.5px;
+            }
+
+            .vehicle-icon {
+                font-size: 4.5rem;
+            }
+
+            .vehicle-body {
+                padding: 1.75rem 1.5rem;
+            }
+
+            .contact-btn {
+                padding: 1.25rem 1.5rem;
+                font-size: 1.05rem;
+            }
+
+            .emergency-notice {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .vehicle-number {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="toast" class="toast"></div>
+
+    <div class="vehicle-container">
+        <div id="loadingState" class="loading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading vehicle details...</div>
+            <div class="loading-subtext">Please wait a moment</div>
+        </div>
+
+        <div id="errorState" class="error hide">
+            <span class="error-icon">ðŸš«</span>
+            <h2>Vehicle Not Found</h2>
+            <p id="errorMessage">This vehicle profile doesn't exist or has been removed.</p>
+            <button class="error-btn" onclick="window.location.reload()">
+                ðŸ”„ Try Again
+            </button>
+        </div>
+
+        <div id="expiredBanner" class="expired-banner">
+            <span>âš ï¸</span>
+            <span>This QR code has expired.</span>
+        </div>
+
+        <div id="vehicleContent" class="hide">
+            <div class="vehicle-header">
+                <div class="vehicle-icon" id="vehicleIcon">ðŸš—</div>
+                <div class="vehicle-number" id="vehicleNumber">LOADING...</div>
+                <div class="vehicle-label">Vehicle Registration Number</div>
+            </div>
+
+            <div class="vehicle-body">
+                <div class="emergency-notice">
+                    <div class="emergency-icon">ðŸ…¿ï¸</div>
+                    <div class="emergency-text">
+                        <strong>Parking / Vehicle Issue?</strong>
+                        Contact the vehicle owner instantly using the buttons below.
+                    </div>
+                </div>
+
+                <div class="contact-section-title">
+                    <span>ðŸ“ž</span>
+                    <span>Contact Owner</span>
+                </div>
+
+                <div class="contact-buttons" id="contactButtons">
+                </div>
+            </div>
+
+            <div class="vehicle-footer">
+                <div class="powered-by">Powered by</div>
+                <a href="https://scan2reach.com" class="brand" target="_blank">Scan2Reach</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calling Modal -->
+    <div class="call-modal" id="callingModal">
+        <div class="call-content">
+            <div class="call-avatar-container">
+                <div class="call-avatar" id="callAvatar">ðŸ“ž</div>
+                <div class="call-pulse" id="callPulse"></div>
+            </div>
+            <div class="call-title" id="callTitle">Calling Owner...</div>
+            <div class="call-subtitle" id="callStatus">Waiting for owner to answer...</div>
+            <button class="call-end-btn" id="endCallBtn">âœ•</button>
+        </div>
+    </div>
+
+    <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, doc, getDoc, updateDoc, increment, serverTimestamp, addDoc, collection } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getDatabase, ref, push, set, onValue, remove, off, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+    // Firebase Configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyDCNYN2_n4KtEcTy48GIIjx93HVfda7xbI",
+        authDomain: "scan2reach-new.firebaseapp.com",
+        projectId: "scan2reach-new",
+        storageBucket: "scan2reach-new.firebasestorage.app",
+        messagingSenderId: "466815844554",
+        appId: "1:466815844554:web:caf16651ec18d026d8b433",
+        databaseURL: "https://scan2reach-new-default-rtdb.firebaseio.com"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const realtimeDb = getDatabase(app);
+
+    // Global State
+    let currentProfile = null;
+    let currentProfileId = null;
+    let currentCallRef = null;
+    let currentCallDbRef = null;
+    let callUnsubscribe = null;
+    let callTimeoutId = null;
+    let callEstablished = false; // ðŸ”¥ Track if call was established
+
+    // ==================== UTILITY FUNCTIONS ====================
+
+    function showToast(message, type = 'default') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = `toast ${type} show`;
+        setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    function extractProfileId() {
+        const urlParams = new URLSearchParams(window.location.search);
+        let profileId = urlParams.get('id');
+        
+        if (profileId) {
+            return profileId.trim();
+        }
+
+        const pathParts = window.location.pathname.split('/').filter(p => p && p.trim());
+        if (pathParts.length > 0) {
+            const lastPart = pathParts[pathParts.length - 1];
+            if (!lastPart.includes('.html') && lastPart.length > 10) {
+                return lastPart.trim();
+            }
+        }
+
+        return null;
+    }
+
+    // ==================== CALL FUNCTIONS ====================
+
+    function showCallingModal(isEmergency = false) {
+        const modal = document.getElementById('callingModal');
+        const avatar = document.getElementById('callAvatar');
+        const title = document.getElementById('callTitle');
+        const pulse = document.getElementById('callPulse');
+        
+        modal.classList.remove('connected');
+        pulse.classList.remove('stop');
+        
+        if (isEmergency) {
+            modal.classList.add('emergency');
+            avatar.textContent = 'ðŸš¨';
+            title.textContent = 'Emergency Call...';
+        } else {
+            modal.classList.remove('emergency');
+            avatar.textContent = 'ðŸ“ž';
+            title.textContent = 'Calling Owner...';
+        }
+        
+        modal.classList.add('show');
+    }
+
+    function showConnectedModal() {
+        const modal = document.getElementById('callingModal');
+        const avatar = document.getElementById('callAvatar');
+        const title = document.getElementById('callTitle');
+        const pulse = document.getElementById('callPulse');
+        
+        modal.classList.remove('emergency');
+        modal.classList.add('connected');
+        avatar.textContent = 'âœ…';
+        title.textContent = 'Connected!';
+        pulse.classList.add('stop');
+    }
+
+    function hideCallingModal() {
+        const modal = document.getElementById('callingModal');
+        modal.classList.remove('show');
+        modal.classList.remove('emergency');
+        modal.classList.remove('connected');
+    }
+
+    function cleanupCall() {
+    console.log('ðŸ§¹ Cleaning up call...');
+    
+    // Clear timeout
+    if (callTimeoutId) {
+        clearTimeout(callTimeoutId);
+        callTimeoutId = null;
+        console.log('â° Timeout cleared');
+    }
+    
+    // Unsubscribe from listener
+    if (callUnsubscribe) {
+        try {
+            callUnsubscribe();
+            console.log('âœ… Listener removed');
+        } catch (e) {
+            console.log('âš ï¸ Error removing listener:', e);
+        }
+        callUnsubscribe = null;
+    }
+    
+    // Clear references
+    currentCallDbRef = null;
+    currentCallRef = null;
+    callEstablished = false;
+    
+    console.log('âœ… Cleanup complete');
+}
+
+    // âœ… Call Owner via App
+    async function callOwnerApp(isEmergency = false) {
+        console.log('ðŸ“ž Initiating app call...', isEmergency ? 'ðŸš¨ EMERGENCY' : '');
+        
+        if (!currentProfile || !currentProfile.userId) {
+            showToast('Owner has not setup app yet', 'error');
+            return;
+        }
+
+        // Ask for name
+        const callerName = prompt('Enter your name:') || 'Anonymous';
+
+        try {
+            showCallingModal(isEmergency);
+            document.getElementById('callStatus').textContent = 'Connecting to owner...';
+            
+            // Reset flag
+            callEstablished = false;
+
+            const ownerId = currentProfile.userId;
+            const callsRef = ref(realtimeDb, `calls/${ownerId}`);
+            const newCallRef = push(callsRef);
+            
+            currentCallRef = `calls/${ownerId}/${newCallRef.key}`;
+            currentCallDbRef = newCallRef;
+
+            console.log('ðŸ“ Creating call at:', currentCallRef);
+
+            // Create call data
+            const callData = {
+                callerName: callerName,
+                profileId: currentProfileId,
+                vehicleNumber: currentProfile.vehicleNumber || 'Unknown',
+                isEmergency: isEmergency,
+                status: 'ringing',
+                timestamp: Date.now()
+            };
+
+            // ðŸ”¥ Write call data
+            await set(newCallRef, callData);
+            
+            console.log('âœ… Call created successfully');
+            
+            // ðŸ”¥ Verify call was created before listening
+            const snapshot = await get(newCallRef);
+            if (!snapshot.exists()) {
+                throw new Error('Call was not created');
+            }
+            
+            console.log('âœ… Call verified in database');
+            callEstablished = true; // ðŸ”¥ Mark as established
+            
+            document.getElementById('callStatus').textContent = 'Ringing... Waiting for owner';
+
+            // Start listening for status changes
+            listenForCallStatus(newCallRef);
+
+            // Auto timeout after 60 seconds
+            callTimeoutId = setTimeout(() => {
+                if (document.getElementById('callingModal').classList.contains('show')) {
+                    console.log('â° Call timeout - no answer');
+                    cancelCall('timeout');
+                }
+            }, 60000);
+
+        } catch (error) {
+            console.error('âŒ Error creating call:', error);
+            cleanupCall();
+            hideCallingModal();
+            showToast('Failed to call. Try again.', 'error');
+        }
+    }
+
+    // âœ… FIXED: Listen for call status updates
+function listenForCallStatus(callRef) {
+    console.log('ðŸ‘‚ Starting to listen for call status...');
+    
+    let firstCallback = true; // ðŸ”¥ Track first callback
+    let hasSeenRinging = false; // ðŸ”¥ Track if we've seen ringing status
+    
+    const listener = (snapshot) => {
+        const data = snapshot.val();
+        
+        console.log('ðŸ“Š Call data update:', data);
+        console.log('ðŸ“Š Has seen ringing:', hasSeenRinging);
+        console.log('ðŸ“Š First callback:', firstCallback);
+        
+        // ðŸ”¥ Skip first callback if data is null (race condition)
+        if (firstCallback) {
+            firstCallback = false;
+            if (!data) {
+                console.log('â³ First callback with null data - waiting...');
+                return;
+            }
+        }
+        
+        // ðŸ”¥ If data is null AND we've seen ringing = owner answered
+        if (!data) {
+            if (hasSeenRinging) {
+                console.log('âœ… Call data removed - Owner accepted!');
+                
+                cleanupCall();
+                
+                document.getElementById('callStatus').textContent = 'Owner answered!';
+                showConnectedModal();
+                
+                setTimeout(() => {
+                    hideCallingModal();
+                    showToast('âœ… Owner received your call!', 'success');
+                }, 2500);
+            } else {
+                console.log('âš ï¸ Call data null but never saw ringing - call cancelled');
+                cleanupCall();
+                hideCallingModal();
+                showToast('Call cancelled', 'default');
+            }
+            return;
+        }
+
+        // Check status
+        const status = data.status;
+        console.log('ðŸ“ž Call status:', status);
+
+        // ðŸ”¥ Mark that we've seen the call ringing
+        if (status === 'ringing') {
+            hasSeenRinging = true;
+            callEstablished = true;
+            console.log('âœ… Call is ringing...');
+        }
+
+        if (status === 'accepted') {
+            console.log('âœ… Owner accepted the call!');
+            hasSeenRinging = true; // Ensure this is set
+            
+            document.getElementById('callStatus').textContent = 'Owner accepted!';
+            showConnectedModal();
+            
+            // Wait for data removal (will be caught by the null check above)
+        }
+
+        if (status === 'rejected') {
+            console.log('âŒ Owner rejected the call');
+            
+            cleanupCall();
+            
+            document.getElementById('callStatus').textContent = 'Call declined';
+            
+            setTimeout(() => {
+                hideCallingModal();
+                showToast('âŒ Owner declined. Try again later.', 'error');
+            }, 1500);
+        }
+
+        if (status === 'ended' || status === 'cancelled') {
+            console.log('ðŸ“´ Call ended:', status);
+            
+            cleanupCall();
+            hideCallingModal();
+            showToast('Call ended', 'default');
+        }
+    };
+    
+    // ðŸ”¥ Attach listener and store reference
+    onValue(callRef, listener, (error) => {
+        console.error('âŒ Error listening to call:', error);
+        
+        if (hasSeenRinging) {
+            cleanupCall();
+            hideCallingModal();
+            showToast('Connection lost. Try again.', 'error');
+        }
+    });
+    
+    // ðŸ”¥ Store the cleanup function
+    callUnsubscribe = () => {
+        console.log('ðŸ”‡ Removing listener');
+        off(callRef, 'value', listener);
+    };
+}
+
+    // Cancel call
+    async function cancelCall(reason = 'cancelled') {
+        console.log('ðŸ“´ Cancelling call:', reason);
+        
+        const callPath = currentCallRef;
+        
+        cleanupCall();
+
+        if (callPath) {
+            try {
+                await remove(ref(realtimeDb, callPath));
+                console.log('âœ… Call removed from database');
+            } catch (e) {
+                console.log('âš ï¸ Could not remove call:', e);
+            }
+        }
+
+        hideCallingModal();
+
+        const messages = {
+            'cancelled': 'Call cancelled',
+            'timeout': 'No answer. Owner may be busy.',
+        };
+        showToast(messages[reason] || 'Call ended', 'default');
+    }
+
+    // End call button
+    document.getElementById('endCallBtn').addEventListener('click', () => {
+        cancelCall('cancelled');
+    });
+
+    // Expose functions globally
+    window.callOwnerApp = callOwnerApp;
+
+    // ==================== DATA STANDARDIZATION ====================
+
+    function standardizeVehicleData(rawProfile) {
+        const getValue = (value) => {
+            if (!value) return '';
+            if (typeof value === 'string') return value.trim();
+            if (typeof value === 'number') return String(value);
+            return String(value).trim();
+        };
+
+        const subscriptionStatus = rawProfile.subscriptionStatus || rawProfile.status || '';
+        const isActive = (
+            subscriptionStatus === 'active' ||
+            subscriptionStatus === 'paid' ||
+            rawProfile.isActive === true ||
+            rawProfile.active === true ||
+            (subscriptionStatus === '' && rawProfile.isActive !== false)
+        );
+
+        return {
+            vehicleNumber: getValue(
+                rawProfile.vehicleNumber || 
+                rawProfile.vehicleNo || 
+                rawProfile.registrationNumber || 
+                rawProfile.regNo || 
+                rawProfile.plateNumber || 
+                rawProfile.numberPlate
+            ),
+            vehicleType: getValue(rawProfile.vehicleType || rawProfile.type) || 'car',
+            ownerName: getValue(rawProfile.ownerName || rawProfile.owner || rawProfile.name),
+            productType: getValue(rawProfile.productType || rawProfile.profileType) || 'vehicle',
+            expiresAt: rawProfile.expiresAt || null,
+            isActive: isActive,
+            userId: rawProfile.userId || null
+        };
+    }
+
+    // ==================== RENDERING ====================
+
+    function showError(message) {
+        document.getElementById('loadingState').classList.add('hide');
+        document.getElementById('vehicleContent').classList.add('hide');
+        document.getElementById('errorMessage').textContent = message;
+        document.getElementById('errorState').classList.remove('hide');
+    }
+
+    function getVehicleIcon(vehicleType) {
+        const type = (vehicleType || 'car').toLowerCase();
+        const icons = {
+            'car': 'ðŸš—', 'sedan': 'ðŸš™', 'suv': 'ðŸš™', 'hatchback': 'ðŸš—',
+            'bike': 'ðŸï¸', 'motorcycle': 'ðŸï¸', 'scooter': 'ðŸ›µ', 'scooty': 'ðŸ›µ',
+            'truck': 'ðŸšš', 'bus': 'ðŸšŒ', 'van': 'ðŸš', 'auto': 'ðŸ›º'
+        };
+        return icons[type] || 'ðŸš—';
+    }
+
+    function renderVehicleProfile(profile, isExpired) {
+        document.getElementById('vehicleIcon').textContent = getVehicleIcon(profile.vehicleType);
+
+        const vehicleNumber = profile.vehicleNumber || 'UNKNOWN';
+        document.getElementById('vehicleNumber').textContent = vehicleNumber.toUpperCase();
+        document.title = `${vehicleNumber} - Vehicle Contact`;
+
+        if (isExpired) {
+            document.getElementById('expiredBanner').classList.add('visible');
+            document.getElementById('contactButtons').innerHTML = `
+                <div class="inactive-profile">
+                    <div class="inactive-icon">â°</div>
+                    <div class="inactive-title">QR Code Expired</div>
+                    <div class="inactive-text">Owner needs to renew subscription.</div>
+                </div>
+            `;
+            return;
+        }
+
+        if (!profile.isActive) {
+            document.getElementById('contactButtons').innerHTML = `
+                <div class="inactive-profile">
+                    <div class="inactive-icon">ðŸš«</div>
+                    <div class="inactive-title">Profile Inactive</div>
+                    <div class="inactive-text">Contact support for help.</div>
+                </div>
+            `;
+            return;
+        }
+
+        renderContactButtons(profile);
+    }
+
+    function renderContactButtons(profile) {
+        const container = document.getElementById('contactButtons');
+        const hasApp = profile.userId ? true : false;
+
+        if (!hasApp) {
+            container.innerHTML = `
+                <div class="no-contact">
+                    <span class="no-contact-icon">ðŸ“µ</span>
+                    <div>Owner has not setup the app yet.</div>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <button class="contact-btn btn-call" onclick="callOwnerApp(false)">
+                <span class="btn-icon">ðŸ“ž</span>
+                <span>Call Owner</span>
+            </button>
+            
+            <button class="contact-btn btn-emergency" onclick="callOwnerApp(true)">
+                <span class="btn-icon">ðŸš¨</span>
+                <span>Emergency Call</span>
+            </button>
+        `;
+    }
+
+    // ==================== ANALYTICS ====================
+
+    async function trackVisit(profileId) {
+        try {
+            const profileRef = doc(db, 'profiles', profileId);
+            await updateDoc(profileRef, {
+                views: increment(1),
+                lastVisited: serverTimestamp()
+            });
+        } catch (error) {
+            console.log('Failed to track visit');
+        }
+    }
+
+    // ==================== MAIN LOAD FUNCTION ====================
+
+    async function loadVehicleProfile() {
+        console.log('ðŸš€ Loading vehicle profile...');
+
+        const loadingTimeout = setTimeout(() => {
+            showError('Loading timeout. Check your internet.');
+        }, 15000);
+
+        try {
+            const profileId = extractProfileId();
+            
+            if (!profileId) {
+                clearTimeout(loadingTimeout);
+                showError('Invalid URL. Scan the QR code again.');
+                return;
+            }
+
+            currentProfileId = profileId;
+
+            const profileRef = doc(db, 'profiles', profileId);
+            const profileSnap = await getDoc(profileRef);
+
+            if (!profileSnap.exists()) {
+                clearTimeout(loadingTimeout);
+                showError('Vehicle not found.');
+                return;
+            }
+
+            const rawData = profileSnap.data();
+            const profile = standardizeVehicleData(rawData);
+            currentProfile = profile;
+
+            let isExpired = false;
+            if (profile.expiresAt) {
+                const expiryDate = profile.expiresAt.toDate ? profile.expiresAt.toDate() : new Date(profile.expiresAt);
+                isExpired = expiryDate < new Date();
+            }
+
+            clearTimeout(loadingTimeout);
+            document.getElementById('loadingState').classList.add('hide');
+            document.getElementById('vehicleContent').classList.remove('hide');
+
+            renderVehicleProfile(profile, isExpired);
+
+            if (!isExpired && profile.isActive) {
+                trackVisit(profileId);
+            }
+
+            console.log('âœ… Profile loaded successfully!');
+            console.log('ðŸ‘¤ Owner ID:', profile.userId);
+
+        } catch (error) {
+            clearTimeout(loadingTimeout);
+            console.error('Error loading profile:', error);
+            showError('Unable to load profile. Try again.');
+        }
+    }
+
+    // ==================== INITIALIZE ====================
+    loadVehicleProfile();
+</script>
+</body>
+</html>
+
+===== receiver.html =====
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Receiver - Scan2Reach</title>
+    <meta name="description" content="Receive calls from your Scan2Reach QR codes">
+    <meta name="theme-color" content="#667eea">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="/assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-500: #6b7280;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 24px;
+            padding: 2.5rem;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 2rem;
+        }
+
+        .status-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+
+        .status-title {
+            color: var(--gray-900);
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-subtitle {
+            color: var(--gray-500);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-top: 1rem;
+        }
+
+        .badge-online {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-offline {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-busy {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .incoming-call {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .incoming-call.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .call-card {
+            background: white;
+            border-radius: 32px;
+            padding: 3rem 2rem;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .caller-icon {
+            font-size: 6rem;
+            margin-bottom: 1rem;
+            animation: ring 1s ease-in-out infinite;
+        }
+
+        @keyframes ring {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-10deg); }
+            75% { transform: rotate(10deg); }
+        }
+
+        .call-title {
+            color: var(--gray-900);
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .caller-info {
+            color: var(--gray-600);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+
+        .call-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .call-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-accept {
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: white;
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-accept:hover {
+            transform: scale(1.1);
+        }
+
+        .btn-reject {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            color: white;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-reject:hover {
+            transform: scale(1.1);
+        }
+
+        .active-call {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+        }
+
+        .active-call.show {
+            display: flex;
+        }
+
+        .call-timer {
+            font-size: 3rem;
+            font-weight: 800;
+            margin: 2rem 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .call-info {
+            font-size: 1.25rem;
+            margin-bottom: 3rem;
+            opacity: 0.9;
+        }
+
+        .call-controls {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            font-size: 1.75rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        .btn-end-call {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+
+        .history-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .history-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-info {
+            flex: 1;
+        }
+
+        .history-vehicle {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .history-time {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        .history-duration {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .hide {
+            display: none !important;
+        }
+
+        @media (max-width: 640px) {
+            .status-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .call-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .call-timer {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Status Card -->
+        <div class="status-card" id="statusCard">
+            <div class="status-icon" id="statusIcon">ðŸ“±</div>
+            <h1 class="status-title" id="statusTitle">Connecting...</h1>
+            <p class="status-subtitle" id="statusSubtitle">Please wait</p>
+            <div class="status-badge badge-offline" id="statusBadge">Offline</div>
+        </div>
+
+        <!-- Call History -->
+        <div class="history-card" id="historyCard">
+            <h2 class="history-title">
+                <span>ðŸ“œ</span>
+                <span>Recent Calls</span>
+            </h2>
+            <div id="historyList">
+                <p style="opacity:0.7;text-align:center;">No calls yet</p>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <button class="settings-btn" onclick="showSettings()">
+            âš™ï¸ Settings
+        </button>
+    </div>
+
+    <!-- Incoming Call UI -->
+    <div class="incoming-call" id="incomingCall">
+        <div class="call-card">
+            <div class="caller-icon">ðŸ“ž</div>
+            <h2 class="call-title">Incoming Call</h2>
+            <p class="caller-info" id="callerInfo">Unknown</p>
+            <div class="call-actions">
+                <button class="call-btn btn-reject" onclick="rejectCall()">
+                    âŒ
+                </button>
+                <button class="call-btn btn-accept" onclick="acceptCall()">
+                    âœ…
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Call UI -->
+    <div class="active-call" id="activeCall">
+        <div class="caller-icon" style="font-size:5rem;">ðŸ“ž</div>
+        <div class="call-timer" id="callTimer">00:00</div>
+        <div class="call-info" id="activeCallInfo">Connected</div>
+        <div class="call-controls">
+            <button class="control-btn" id="muteBtn" onclick="toggleMute()">
+                ðŸ”‡
+            </button>
+            <button class="control-btn btn-end-call" onclick="endCall()">
+                ðŸ“ž
+            </button>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="ringtone" loop>
+        <source src="/assets/ringtone.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="remoteAudio"></audio>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+
+    <script>
+        // ==================== Firebase Configuration ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyATdL0mgIrfRhfZ17jeAIHPcwFcX4_zspA",
+            authDomain: "scan2reach-new.firebaseapp.com",
+            projectId: "scan2reach-new",
+            storageBucket: "scan2reach-new.firebasestorage.app",
+            messagingSenderId: "466815844554",
+            appId: "1:466815844554:web:caf16651ec18d026d8b433"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const messaging = firebase.messaging();
+
+        // ==================== ðŸ”‘ YOUR VAPID KEY ====================
+        const VAPID_KEY = "BLH-1G-vk3bFVEohUjGOBsso8LewG17xB6nNBBAkI7hHXCFzgFQnVvMRMafHPu35QicIKx4ycmysAZb7oi6wvW8";
+
+        // ==================== Global State ====================
+        let currentUser = null;
+        let currentCall = null;
+        let peerConnection = null;
+        let localStream = null;
+        let callTimer = null;
+        let callStartTime = null;
+        let isMuted = false;
+
+        // ==================== WebRTC Configuration ====================
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        };
+
+        // ==================== Initialize ====================
+        async function initialize() {
+            console.log('ðŸš€ Initializing receiver...');
+
+            // Check auth
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    console.log('âœ… User authenticated:', user.email);
+                    await setupReceiver();
+                } else {
+                    console.log('âŒ No user, redirecting to login');
+                    window.location.href = '/login.html';
+                }
+            });
+
+            // Check for incoming call in URL (from notification click)
+            const urlParams = new URLSearchParams(window.location.search);
+            const callId = urlParams.get('callId');
+            const action = urlParams.get('action');
+
+            if (callId && action === 'answer') {
+                console.log('ðŸ“ž Auto-answering call from notification:', callId);
+                setTimeout(() => {
+                    loadAndAnswerCall(callId);
+                }, 2000);
+            }
+        }
+
+        // ==================== Setup Receiver ====================
+        async function setupReceiver() {
+            try {
+                updateStatus('online', 'âœ… Online', 'Ready to receive calls');
+
+                // Register Service Worker
+                if ('serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                    console.log('âœ… Service Worker registered');
+
+                    // Request notification permission
+                    const permission = await Notification.requestPermission();
+                    console.log('ðŸ”” Notification permission:', permission);
+
+                    if (permission === 'granted') {
+                        // Get FCM token
+                        const token = await messaging.getToken({
+                            vapidKey: VAPID_KEY,
+                            serviceWorkerRegistration: registration
+                        });
+
+                        console.log('âœ… FCM Token:', token.substring(0, 20) + '...');
+
+                        // Save token to Firestore
+                        await db.collection('users').doc(currentUser.uid).set({
+                            fcmToken: token,
+                            fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            email: currentUser.email,
+                            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+
+                        console.log('âœ… FCM token saved to Firestore');
+                    } else {
+                        console.warn('âš ï¸ Notification permission denied');
+                        updateStatus('online', 'âš ï¸ Limited', 'Enable notifications for background calls');
+                    }
+                }
+
+                // Listen for foreground messages
+                messaging.onMessage((payload) => {
+                    console.log('ðŸ“© Foreground message received:', payload);
+                    handleIncomingCall(payload.data);
+                });
+
+                // Listen for incoming calls in Firestore
+                listenForCalls();
+
+                // Load call history
+                loadCallHistory();
+
+            } catch (error) {
+                console.error('âŒ Setup error:', error);
+                updateStatus('offline', 'âŒ Error', error.message);
+            }
+        }
+
+        // ==================== Listen for Incoming Calls ====================
+        function listenForCalls() {
+            db.collection('calls')
+                .where('receiverId', '==', currentUser.uid)
+                .where('status', '==', 'ringing')
+                .onSnapshot((snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const call = { id: change.doc.id, ...change.doc.data() };
+                            console.log('ðŸ“ž Incoming call detected:', call);
+                            showIncomingCallUI(call);
+                        }
+                    });
+                });
+        }
+
+        // ==================== Handle Incoming Call ====================
+        function handleIncomingCall(data) {
+            console.log('ðŸ“ž Handling incoming call:', data);
+            
+            db.collection('calls').doc(data.callId).get()
+                .then((doc) => {
+                    if (doc.exists) {
+                        const call = { id: doc.id, ...doc.data() };
+                        showIncomingCallUI(call);
+                    }
+                });
+        }
+
+        // ==================== Show Incoming Call UI ====================
+        function showIncomingCallUI(call) {
+            currentCall = call;
+            
+            const callerInfo = call.vehicleNumber || call.callerName || 'Unknown Caller';
+            document.getElementById('callerInfo').textContent = `Vehicle: ${callerInfo}`;
+            document.getElementById('incomingCall').classList.add('show');
+            
+            // Play ringtone
+            const ringtone = document.getElementById('ringtone');
+            ringtone.play().catch(e => console.log('Ringtone play failed:', e));
+            
+            // Vibrate if supported
+            if ('vibrate' in navigator) {
+                navigator.vibrate([200, 100, 200, 100, 200, 100, 200]);
+            }
+        }
+
+        // ==================== Accept Call ====================
+        async function acceptCall() {
+            if (!currentCall) return;
+
+            try {
+                console.log('âœ… Accepting call:', currentCall.id);
+
+                // Stop ringtone
+                document.getElementById('ringtone').pause();
+
+                // Hide incoming call UI
+                document.getElementById('incomingCall').classList.remove('show');
+
+                // Show active call UI
+                document.getElementById('activeCall').classList.add('show');
+                document.getElementById('activeCallInfo').textContent = `Vehicle: ${currentCall.vehicleNumber || 'Unknown'}`;
+
+                // Start call timer
+                startCallTimer();
+
+                // Update call status
+                await db.collection('calls').doc(currentCall.id).update({
+                    status: 'connecting',
+                    answeredAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Get microphone permission
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                console.log('âœ… Got local stream');
+
+                // Create peer connection
+                await setupWebRTC();
+
+            } catch (error) {
+                console.error('âŒ Error accepting call:', error);
+                alert('Failed to accept call: ' + error.message);
+                endCall();
+            }
+        }
+
+        // ==================== Reject Call ====================
+        async function rejectCall() {
+            if (!currentCall) return;
+
+            console.log('âŒ Rejecting call:', currentCall.id);
+
+            // Stop ringtone
+            document.getElementById('ringtone').pause();
+
+            // Hide incoming call UI
+            document.getElementById('incomingCall').classList.remove('show');
+
+            // Update call status
+            await db.collection('calls').doc(currentCall.id).update({
+                status: 'rejected',
+                rejectedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            currentCall = null;
+        }
+
+        // ==================== Setup WebRTC ====================
+        async function setupWebRTC() {
+            console.log('ðŸŒ Setting up WebRTC...');
+
+            peerConnection = new RTCPeerConnection(rtcConfig);
+
+            // Add local stream
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                console.log('âœ… Remote track received');
+                const remoteAudio = document.getElementById('remoteAudio');
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.play();
+            };
+
+            // Handle ICE candidates
+            peerConnection.onicecandidate = async (event) => {
+                if (event.candidate) {
+                    console.log('ðŸ§Š Sending ICE candidate');
+                    await db.collection('calls').doc(currentCall.id).update({
+                        [`receiverIceCandidates.${Date.now()}`]: JSON.stringify(event.candidate)
+                    });
+                }
+            };
+
+            // Handle connection state
+            peerConnection.onconnectionstatechange = () => {
+                console.log('ðŸ”— Connection state:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'connected') {
+                    console.log('âœ… Call connected');
+                    db.collection('calls').doc(currentCall.id).update({
+                        status: 'connected',
+                        connectedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            };
+
+            // Get caller's offer
+            const callDoc = await db.collection('calls').doc(currentCall.id).get();
+            const offer = callDoc.data().callerOffer;
+
+            if (offer) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                // Send answer to caller
+                await db.collection('calls').doc(currentCall.id).update({
+                    receiverAnswer: answer
+                });
+
+                console.log('âœ… Sent answer to caller');
+
+                // Listen for caller's ICE candidates
+                listenForIceCandidates();
+            }
+        }
+
+        // ==================== Listen for ICE Candidates ====================
+        function listenForIceCandidates() {
+            db.collection('calls').doc(currentCall.id).onSnapshot((doc) => {
+                const data = doc.data();
+                if (data.callerIceCandidates) {
+                    Object.values(data.callerIceCandidates).forEach((candidateStr) => {
+                        try {
+                            const candidate = JSON.parse(candidateStr);
+                            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        } catch (e) {
+                            console.log('Ice candidate already added');
+                        }
+                    });
+                }
+            });
+        }
+
+        // ==================== Call Timer ====================
+        function startCallTimer() {
+            callStartTime = Date.now();
+            callTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('callTimer').textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        // ==================== Toggle Mute ====================
+        function toggleMute() {
+            if (!localStream) return;
+
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(track => {
+                track.enabled = !isMuted;
+            });
+
+            const muteBtn = document.getElementById('muteBtn');
+            muteBtn.textContent = isMuted ? 'ðŸ”‡' : 'ðŸ”Š';
+            console.log(isMuted ? 'ðŸ”‡ Muted' : 'ðŸ”Š Unmuted');
+        }
+
+        // ==================== End Call ====================
+        async function endCall() {
+            console.log('ðŸ“ž Ending call');
+
+            // Stop timer
+            if (callTimer) {
+                clearInterval(callTimer);
+                callTimer = null;
+            }
+
+            // Calculate duration
+            let duration = 0;
+            if (callStartTime) {
+                duration = Math.floor((Date.now() - callStartTime) / 1000);
+            }
+
+            // Close peer connection
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+
+            // Stop local stream
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            // Update call in database
+            if (currentCall) {
+                await db.collection('calls').doc(currentCall.id).update({
+                    status: 'ended',
+                    endedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    duration: duration
+                });
+            }
+
+            // Hide active call UI
+            document.getElementById('activeCall').classList.remove('show');
+
+            // Reset state
+            currentCall = null;
+            callStartTime = null;
+            isMuted = false;
+
+            // Reload history
+            loadCallHistory();
+        }
+
+        // ==================== Load Call History ====================
+        async function loadCallHistory() {
+            try {
+                const calls = await db.collection('calls')
+                    .where('receiverId', '==', currentUser.uid)
+                    .where('status', 'in', ['ended', 'rejected'])
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get();
+
+                const historyList = document.getElementById('historyList');
+
+                if (calls.empty) {
+                    historyList.innerHTML = '<p style="opacity:0.7;text-align:center;">No calls yet</p>';
+                    return;
+                }
+
+                let html = '';
+                calls.forEach((doc) => {
+                    const call = doc.data();
+                    const time = call.createdAt?.toDate().toLocaleString() || 'Unknown time';
+                    const duration = call.duration ? formatDuration(call.duration) : '--';
+                    const status = call.status === 'rejected' ? 'âŒ' : 'âœ…';
+
+                    html += `
+                        <div class="history-item">
+                            <div class="history-info">
+                                <div class="history-vehicle">${status} ${call.vehicleNumber || 'Unknown'}</div>
+                                <div class="history-time">${time}</div>
+                            </div>
+                            <div class="history-duration">${duration}</div>
+                        </div>
+                    `;
+                });
+
+                historyList.innerHTML = html;
+
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // ==================== Load and Answer Call (from notification) ====================
+        async function loadAndAnswerCall(callId) {
+            try {
+                const doc = await db.collection('calls').doc(callId).get();
+                if (doc.exists && doc.data().status === 'ringing') {
+                    const call = { id: doc.id, ...doc.data() };
+                    currentCall = call;
+                    await acceptCall();
+                }
+            } catch (error) {
+                console.error('Error auto-answering:', error);
+            }
+        }
+
+        // ==================== Utility Functions ====================
+        function updateStatus(status, title, subtitle) {
+            const statusIcon = document.getElementById('statusIcon');
+            const statusTitle = document.getElementById('statusTitle');
+            const statusSubtitle = document.getElementById('statusSubtitle');
+            const statusBadge = document.getElementById('statusBadge');
+
+            statusTitle.textContent = title;
+            statusSubtitle.textContent = subtitle;
+
+            statusBadge.className = 'status-badge';
+            if (status === 'online') {
+                statusIcon.textContent = 'âœ…';
+                statusBadge.classList.add('badge-online');
+                statusBadge.textContent = 'Online';
+            } else if (status === 'offline') {
+                statusIcon.textContent = 'âŒ';
+                statusBadge.classList.add('badge-offline');
+                statusBadge.textContent = 'Offline';
+            } else if (status === 'busy') {
+                statusIcon.textContent = 'ðŸ“ž';
+                statusBadge.classList.add('badge-busy');
+                statusBadge.textContent = 'On Call';
+            }
+        }
+
+        function formatDuration(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function showSettings() {
+            alert('Settings feature coming soon!\n\nâ€¢ Do Not Disturb\nâ€¢ Call forwarding\nâ€¢ Ringtone selection\nâ€¢ History management');
+        }
+
+        // ==================== Initialize on Load ====================
+        initialize();
+
+        // ==================== Debug Helper ====================
+        window.debugReceiver = {
+            getUser: () => currentUser,
+            getCall: () => currentCall,
+            testNotification: async () => {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('ðŸ“ž Test Call', {
+                        body: 'Vehicle: TEST123',
+                        icon: '/assets/icons/icon-192.png',
+                        badge: '/assets/icons/icon-72.png',
+                        vibrate: [200, 100, 200]
+                    });
+                } else {
+                    alert('Notifications not enabled');
+                }
+            }
+        };
+    </script>
+</body>
+</html>

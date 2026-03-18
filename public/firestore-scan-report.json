@@ -1,0 +1,82 @@
+{
+  "scanDate": "2026-03-11T18:13:33.153Z",
+  "exists": [
+    {
+      "name": "admins",
+      "count": 1
+    },
+    {
+      "name": "users",
+      "count": 6
+    },
+    {
+      "name": "profiles",
+      "count": 9
+    },
+    {
+      "name": "scans",
+      "count": 50
+    },
+    {
+      "name": "calls",
+      "count": 25
+    },
+    {
+      "name": "payments",
+      "count": 15
+    },
+    {
+      "name": "settings",
+      "count": 3
+    },
+    {
+      "name": "products",
+      "count": 2
+    },
+    {
+      "name": "plans",
+      "count": 3
+    },
+    {
+      "name": "admin_logs",
+      "count": 1
+    },
+    {
+      "name": "fcmTokens",
+      "count": 1
+    },
+    {
+      "name": "analytics",
+      "count": 100
+    },
+    {
+      "name": "scan_analytics",
+      "count": 30
+    },
+    {
+      "name": "activity_logs",
+      "count": 60
+    },
+    {
+      "name": "qr_codes",
+      "count": 3
+    },
+    {
+      "name": "admin_roles",
+      "count": 3
+    },
+    {
+      "name": "notifications",
+      "count": 20
+    }
+  ],
+  "empty": [
+    "orders",
+    "failed_payments",
+    "webhook_logs",
+    "rateLimits",
+    "callRequests",
+    "backups"
+  ],
+  "missing": []
+}

@@ -1,0 +1,10 @@
+New-Item -ItemType Directory -Force -Path "android\app\src\main\res\values" | Out-Null
+@'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple">#6C5CE7</color>
+    <color name="primary_dark">#1A1A2E</color>
+    <color name="background">#0F0F1A</color>
+</resources>
+'@ | Set-Content -Path "android\app\src\main\res\values\colors.xml" -Encoding UTF8
+Write-Host "✅ colors.xml created" -ForegroundColor Green
