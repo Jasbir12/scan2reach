@@ -386,7 +386,8 @@ exports.razorpayWebhook = functions.https.onRequest(async (req, res) => {
 // ==================== WEBRTC CALL FUNCTIONS (NEW) ====================
 
 /**
- * ✅ NEW: Trigger when call request is created - Send FCM notification to owner
+ * ✅ UPDATED: Trigger when call request is created - Send FCM notification to owner with call type
+ * Now supports dual-profile routing: owner vs emergency calls
  */
 exports.onCallRequestCreated = functions
     .region('asia-south1')
@@ -408,32 +409,43 @@ exports.onCallRequestCreated = functions
             
             const profile = profileDoc.data();
             const ownerId = profile.userId;
+            const callType = callData.callType || 'owner'; // Default to owner if not specified
             
             if (!ownerId) {
                 console.error('No userId in profile');
                 return null;
             }
             
-            // Get owner's FCM tokens
+            // ✅ IMPORTANT: Filter FCM tokens by call type
+            // Owner calls go to "main" device, Emergency calls go to "emergency" device
+            const deviceMode = callType === 'emergency' ? 'emergency' : 'main';
+            
             const tokensSnap = await db.collection('fcmTokens')
                 .where('userId', '==', ownerId)
+                .where('deviceMode', '==', deviceMode)
                 .get();
             
             if (tokensSnap.empty) {
-                console.log('No FCM tokens found for user:', ownerId);
+                console.log(`No FCM tokens found for user ${ownerId} on ${deviceMode} device`);
                 return null;
             }
             
             const tokens = [];
             tokensSnap.forEach(doc => tokens.push(doc.data().token));
             
-            console.log('Sending notification to', tokens.length, 'devices');
+            console.log(`Sending ${callType} call notification to ${tokens.length} devices (mode: ${deviceMode})`);
+            
+            // ✅ IMPORTANT: Different notification priorities based on call type
+            const isEmergency = callType === 'emergency';
+            const title = isEmergency ? '🚨 EMERGENCY CALL' : '📞 Incoming Call';
+            const priority = isEmergency ? 'high' : 'normal';
+            const sound = isEmergency ? 'emergency' : 'default';
             
             // Send push notification
             const message = {
                 tokens: tokens,
                 notification: {
-                    title: '📞 Incoming Call',
+                    title: title,
                     body: `${callData.callerName || 'Someone'} is calling about ${callData.vehicleNumber || 'your vehicle'}`
                 },
                 data: {
@@ -442,14 +454,16 @@ exports.onCallRequestCreated = functions
                     profileId: callData.profileId,
                     callerName: callData.callerName || 'Anonymous',
                     vehicleNumber: callData.vehicleNumber || '',
+                    callType: callType,
+                    isEmergency: isEmergency.toString(),
                     timestamp: Date.now().toString()
                 },
                 android: {
-                    priority: 'high',
+                    priority: priority,
                     notification: {
-                        sound: 'default',
-                        channelId: 'calls',
-                        priority: 'max',
+                        sound: sound,
+                        channelId: isEmergency ? 'emergency_calls' : 'calls',
+                        priority: isEmergency ? 'max' : 'high',
                         visibility: 'public',
                         defaultSound: true,
                         defaultVibrateTimings: true
@@ -457,19 +471,20 @@ exports.onCallRequestCreated = functions
                 },
                 apns: {
                     headers: {
-                        'apns-priority': '10'
+                        'apns-priority': isEmergency ? '10' : '10'
                     },
                     payload: {
                         aps: {
                             alert: {
-                                title: '📞 Incoming Call',
+                                title: title,
                                 body: `${callData.callerName || 'Someone'} is calling`
                             },
-                            sound: 'default',
+                            sound: sound,
                             badge: 1,
-                            category: 'INCOMING_CALL',
+                            category: isEmergency ? 'EMERGENCY_CALL' : 'INCOMING_CALL',
                             'content-available': 1,
-                            'mutable-content': 1
+                            'mutable-content': 1,
+                            'interruption-level': isEmergency ? 'critical' : 'active'
                         }
                     }
                 }
@@ -478,6 +493,7 @@ exports.onCallRequestCreated = functions
             const response = await messaging.sendEachForMulticast(message);
             
             console.log('✅ Notification sent:', {
+                callType: callType,
                 success: response.successCount,
                 failure: response.failureCount
             });
@@ -489,13 +505,16 @@ exports.onCallRequestCreated = functions
                 notificationResults: {
                     success: response.successCount,
                     failure: response.failureCount
-                }
+                },
+                callType: callType,
+                targetDevice: deviceMode
             });
             
             // Update profile stats
             await db.collection('profiles').doc(callData.profileId).update({
                 callRequests: admin.firestore.FieldValue.increment(1),
-                lastCallRequestAt: admin.firestore.FieldValue.serverTimestamp()
+                lastCallRequestAt: admin.firestore.FieldValue.serverTimestamp(),
+                [callType === 'emergency' ? 'emergencyCallCount' : 'normalCallCount']: admin.firestore.FieldValue.increment(1)
             });
             
             // Clean up invalid tokens
@@ -527,7 +546,8 @@ exports.onCallRequestCreated = functions
     });
 
 /**
- * ✅ NEW: Register FCM Token
+ * ✅ NEW: Register FCM Token with Device Mode Support
+ * Now tracks which device mode (owner/emergency) the token belongs to
  */
 exports.registerFcmToken = functions
     .region('asia-south1')
@@ -536,7 +556,7 @@ exports.registerFcmToken = functions
             throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
         }
         
-        const { token, deviceInfo } = data;
+        const { token, deviceInfo, deviceMode = 'main' } = data;
         
         if (!token) {
             throw new functions.https.HttpsError('invalid-argument', 'Token required');
@@ -544,6 +564,9 @@ exports.registerFcmToken = functions
         
         try {
             const userId = context.auth.uid;
+            
+            // ✅ IMPORTANT: Track device mode (main = owner, emergency = emergency)
+            console.log(`📱 Registering FCM token for user ${userId} on ${deviceMode} device`);
             
             // Check if token exists
             const existingToken = await db.collection('fcmTokens')
@@ -554,21 +577,25 @@ exports.registerFcmToken = functions
             if (!existingToken.empty) {
                 await existingToken.docs[0].ref.update({
                     userId,
+                    deviceMode: deviceMode,
                     deviceInfo: deviceInfo || {},
                     updatedAt: admin.firestore.FieldValue.serverTimestamp()
                 });
-                return { success: true, action: 'updated' };
+                console.log('✅ FCM token updated with device mode:', deviceMode);
+                return { success: true, action: 'updated', deviceMode: deviceMode };
             }
             
             await db.collection('fcmTokens').add({
                 userId,
                 token,
+                deviceMode: deviceMode,
                 deviceInfo: deviceInfo || {},
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
             
-            return { success: true, action: 'created' };
+            console.log('✅ FCM token created with device mode:', deviceMode);
+            return { success: true, action: 'created', deviceMode: deviceMode };
             
         } catch (error) {
             console.error('Error registering token:', error);
@@ -577,7 +604,7 @@ exports.registerFcmToken = functions
     });
 
 /**
- * ✅ NEW: Log call analytics when call ends
+ * ✅ UPDATED: Log call analytics when call ends - Now tracks call type
  */
 exports.onCallEnded = functions
     .region('asia-south1')
@@ -592,8 +619,10 @@ exports.onCallEnded = functions
                 const callLog = {
                     callId: context.params.callId,
                     profileId: after.profileId,
+                    userId: after.ownerId || after.userId,
                     callerName: after.callerName || 'Anonymous',
                     vehicleNumber: after.vehicleNumber,
+                    callType: after.callType || 'owner', // ✅ NEW: Track if owner or emergency
                     status: 'completed',
                     duration: duration,
                     endedBy: after.endedBy || 'unknown',
@@ -604,14 +633,24 @@ exports.onCallEnded = functions
                 
                 await db.collection('callLogs').add(callLog);
                 
-                // Update profile analytics
-                await db.collection('profiles').doc(after.profileId).update({
+                // Update profile analytics - separate counters for owner and emergency
+                const updateData = {
                     totalCalls: admin.firestore.FieldValue.increment(1),
                     totalCallDuration: admin.firestore.FieldValue.increment(duration),
-                    lastCallAt: admin.firestore.FieldValue.serverTimestamp()
-                });
+                    lastCallAt: admin.firestore.FieldValue.serverTimestamp(),
+                };
                 
-                console.log('✅ Call logged to analytics');
+                if (after.callType === 'emergency') {
+                    updateData.emergencyCallCount = admin.firestore.FieldValue.increment(1);
+                    updateData.totalEmergencyDuration = admin.firestore.FieldValue.increment(duration);
+                } else {
+                    updateData.normalCallCount = admin.firestore.FieldValue.increment(1);
+                    updateData.totalOwnerDuration = admin.firestore.FieldValue.increment(duration);
+                }
+                
+                await db.collection('profiles').doc(after.profileId).update(updateData);
+                
+                console.log(`✅ ${after.callType === 'emergency' ? '🚨' : '📞'} Call logged to analytics (${duration}s)`);
                 
             } catch (error) {
                 console.error('Error logging call:', error);

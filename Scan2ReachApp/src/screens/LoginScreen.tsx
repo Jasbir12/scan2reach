@@ -24,7 +24,12 @@ const LoginScreen = ({ navigation }: any) => {
       await login(email.trim(), password);
       navigateAfterLogin();
     } catch (error: any) {
-      Alert.alert("Login Failed", error.message);
+      // Check if it's a subscription error
+      if (error.message?.includes("SUBSCRIPTION_INACTIVE")) {
+        navigation.replace("SubscriptionBlocked");
+      } else {
+        Alert.alert("Login Failed", error.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -36,7 +41,12 @@ const LoginScreen = ({ navigation }: any) => {
       await loginWithGoogle();
       navigateAfterLogin();
     } catch (error: any) {
-      Alert.alert("Google Sign-In Failed", error.message);
+      // Check if it's a subscription error
+      if (error.message?.includes("SUBSCRIPTION_INACTIVE")) {
+        navigation.replace("SubscriptionBlocked");
+      } else {
+        Alert.alert("Google Sign-In Failed", error.message);
+      }
     } finally {
       setIsGoogleLoading(false);
     }

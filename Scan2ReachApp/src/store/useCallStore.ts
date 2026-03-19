@@ -54,7 +54,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   fetchCallHistory: async (userId) => {
     const snapshot = await firestore().collection(COLLECTIONS.CALL_HISTORY).where("userId", "==", userId).orderBy("startedAt", "desc").limit(50).get();
-    const history = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id })) as CallHistory[];
+    const history = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id })) as unknown as CallHistory[];
     set({ callHistory: history });
   },
 

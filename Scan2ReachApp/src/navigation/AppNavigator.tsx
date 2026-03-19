@@ -9,6 +9,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import LoginScreen from "../screens/LoginScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
 import DeviceModeScreen from "../screens/DeviceModeScreen";
+import SubscriptionBlockedScreen from "../screens/SubscriptionBlockedScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import CallHistoryScreen from "../screens/CallHistoryScreen";
 import ProfileScreen from "../screens/ProfileScreen";
@@ -38,6 +39,7 @@ const MainTabs = () => (
 const AuthStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
     <Stack.Screen name="Login" component={LoginScreen} />
+    <Stack.Screen name="SubscriptionBlocked" component={SubscriptionBlockedScreen} />
     <Stack.Screen name="Onboarding" component={OnboardingScreen} />
     <Stack.Screen name="DeviceMode" component={DeviceModeScreen} />
   </Stack.Navigator>

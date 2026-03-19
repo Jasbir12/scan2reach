@@ -15,7 +15,7 @@ class WebRTCService {
       this.peerConnection!.addTrack(track, this.localStream!);
     });
 
-    this.peerConnection.onicecandidate = (event) => {
+    (this.peerConnection as any).onicecandidate = (event: any) => {
       if (event.candidate) {
         database().ref(`webrtc_calls/${callId}/${isReceiver ? "receiver" : "caller"}_candidates`).push({
           sdpMid: event.candidate.sdpMid, sdpMLineIndex: event.candidate.sdpMLineIndex, candidate: event.candidate.candidate,
@@ -23,8 +23,8 @@ class WebRTCService {
       }
     };
 
-    this.peerConnection.oniceconnectionstatechange = () => {
-      if (this.peerConnection?.iceConnectionState === "connected") InCallManager.start({ media: "audio" });
+    (this.peerConnection as any).oniceconnectionstatechange = () => {
+      if ((this.peerConnection as any).iceConnectionState === "connected") InCallManager.start({ media: "audio" });
     };
 
     if (isReceiver) await this.listenForOffer(callId);

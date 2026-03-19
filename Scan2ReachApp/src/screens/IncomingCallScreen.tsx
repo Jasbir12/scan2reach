@@ -5,15 +5,15 @@ import { useCallStore } from "../store/useCallStore";
 import { useAuthStore } from "../store/useAuthStore";
 import InCallManager from "react-native-incall-manager";
 
-const IncomingCallScreen = ({ route, navigation }: any) => {
-  const { callId, callerName, vehicleNumber, isEmergency } = route.params;
+const IncomingCallScreen = ({ route, navigation }: { route: any; navigation: any }) => {
+  const { callId, callerName, vehicleNumber, isEmergency } = route?.params || {};
   const { acceptCall, rejectCall } = useCallStore();
   const { user } = useAuthStore();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [timeoutId, setTimeoutId] = useState<any>(null);
 
   useEffect(() => {
-    InCallManager.startRingtone("_DEFAULT_");
+    InCallManager.startRingtone("_DEFAULT_", "ios");
     Animated.loop(Animated.sequence([
       Animated.timing(pulseAnim, { toValue: 1.4, duration: 1000, useNativeDriver: true }),
       Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),

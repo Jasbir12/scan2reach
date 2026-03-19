@@ -28,6 +28,14 @@ service cloud.firestore {
              get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin';
     }
     
+    // ✅ NEW: Check if user has active subscription
+    function hasActiveSubscription(userId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(userId));
+      return userDoc.exists && 
+             userDoc.data.subscription.status == 'active' &&
+             userDoc.data.subscription.expiryDate > now;
+    }
+    
     // Check if profile belongs to user
     function isProfileOwner() {
       return isAuthenticated() && resource.data.userId == request.auth.uid;
@@ -64,7 +72,7 @@ service cloud.firestore {
     }
     
     // ========================================================================
-    // USERS COLLECTION
+    // USERS COLLECTION - With Subscription Enforcement
     // ========================================================================
     
     match /users/{userId} {
@@ -83,11 +91,11 @@ service cloud.firestore {
     }
     
     // ========================================================================
-    // PROFILES COLLECTION
+    // PROFILES COLLECTION - With Subscription Validation
     // ========================================================================
     
     match /profiles/{profileId} {
-      // PUBLIC: Anyone can read active profiles (for QR scanning)
+      // PUBLIC: Only active profiles can be read (for QR scanning)
       allow read: if isProfileActive();
       
       // Owner can always read their own profiles
@@ -96,20 +104,75 @@ service cloud.firestore {
       // Admin can read all profiles
       allow read: if isAdmin();
       
-      // Authenticated users can create profiles
+      // ✅ CRITICAL: Only users with active subscription can create/update profiles
       allow create: if isAuthenticated() &&
+                       hasActiveSubscription(request.auth.uid) &&
                        request.resource.data.userId == request.auth.uid &&
                        request.resource.data.keys().hasAll(['userId', 'productType']);
       
-      // Owner can update their own profile
-      allow update: if isProfileOwner() &&
-                       request.resource.data.userId == resource.data.userId;
-      
-      // Admin can update any profile
-      allow update: if isAdmin();
+      // ✅ CRITICAL: Only subscribed users can update their profiles
+      allow update: if (isProfileOwner() &&
+                       hasActiveSubscription(request.auth.uid) &&
+                       request.resource.data.userId == resource.data.userId) ||
+                      isAdmin();
       
       // Owner or admin can delete
       allow delete: if isProfileOwner() || isAdmin();
+    }
+    
+    // ========================================================================
+    // CALL REQUESTS COLLECTION - Dual Profile Routing
+    // ========================================================================
+    
+    match /callRequests/{callId} {
+      // ✅ IMPORTANT: Only subscribed users can receive calls
+      allow read: if (isAuthenticated() && 
+                      hasActiveSubscription(request.auth.uid) &&
+                      get(/databases/$(database)/documents/profiles/$(resource.data.profileId)).data.userId == request.auth.uid) ||
+                     isAdmin();
+      
+      // ✅ Backend/Frontend can create call requests
+      allow create: if request.resource.data.keys().hasAll(['profileId', 'callerName', 'callType']);
+      
+      // Can update own calls
+      allow update: if isAdmin();
+      
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // CALL LOGS COLLECTION - Analytics with Call Type
+    // ========================================================================
+    
+    match /callLogs/{logId} {
+      // ✅ IMPORTANT: Only subscribed users can read their call logs
+      allow read: if (isAuthenticated() && 
+                      hasActiveSubscription(request.auth.uid) &&
+                      resource.data.userId == request.auth.uid) ||
+                     isAdmin();
+      
+      // Backend/Functions only
+      allow create, update: if false;
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // FCM TOKENS COLLECTION - Device Mode Support
+    // ========================================================================
+    
+    match /fcmTokens/{tokenId} {
+      // User can read their own tokens
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Admin can read all
+      allow read: if isAdmin();
+      
+      // Users can create/update their own tokens
+      allow create, update: if isAuthenticated() && 
+                              request.resource.data.userId == request.auth.uid;
+      
+      // Only admin can delete
+      allow delete: if isAdmin();
     }
     
     // ========================================================================
@@ -163,11 +226,54 @@ service cloud.firestore {
     }
     
     // ========================================================================
-    // CALLS COLLECTION (Call Logs)
+    // CALLS COLLECTION (LEGACY - Keep for backward compatibility)
     // ========================================================================
     
     match /calls/{callId} {
       // Participants can read
+      allow read: if isAuthenticated() &&
+                     (resource.data.senderId == request.auth.uid ||
+                      resource.data.receiverId == request.auth.uid) ||
+                     isAdmin();
+      
+      // Authenticated can create
+      allow create: if isAuthenticated();
+      
+      // Owner or admin can update
+      allow update: if isAuthenticated() &&
+                       (resource.data.senderId == request.auth.uid ||
+                        resource.data.receiverId == request.auth.uid) ||
+                       isAdmin();
+      
+      // Owner or admin can delete
+      allow delete: if isAuthenticated() &&
+                       (resource.data.senderId == request.auth.uid ||
+                        resource.data.receiverId == request.auth.uid) ||
+                       isAdmin();
+    }
+    
+    // ========================================================================
+    // ANALYTICS & LOGS (READ-ONLY)
+    // ========================================================================
+    
+    match /analytics/{documentId} {
+      allow read: if isAdmin() || 
+                     (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+    
+    match /profileViews/{documentId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    
+    match /emergencyLogs/{documentId} {
+      allow read: if isAdmin() ||
+                     (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+  }
+}
       allow read: if isAuthenticated() &&
                     (resource.data.callerId == request.auth.uid ||
                      resource.data.receiverId == request.auth.uid ||
